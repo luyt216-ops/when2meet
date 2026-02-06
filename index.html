@@ -145,6 +145,7 @@
 
     <script>
 // 1. Google Apps Script API 網址 (已保留你提供的)
+// 1. Google Apps Script API 網址
 const API_BASE = "https://script.google.com/macros/s/AKfycbwwW7w7OfubUCh4tPW4zdMlkOB5eCs4KGwC-FPyEAaG68xx1nbFu2G6SeMMbb2AjWWt/exec";
 
 let blobId = new URLSearchParams(window.location.search).get('room');
@@ -155,7 +156,9 @@ if (!blobId) {
     window.history.replaceState({ path: newUrl }, '', newUrl);
 }
 
-let globalVotes = JSON.parse(localStorage.getItem('gather_local_cache')) || {};
+// *** 修正點 1：本地快取名稱與房間 ID 綁定，避免房 A 影響房 B ***
+const CACHE_KEY = `gather_cache_${blobId}`;
+let globalVotes = JSON.parse(localStorage.getItem(CACHE_KEY)) || {};
 let currentUser = "";
 let currentYear = new Date().getFullYear();
 let currentMonth = new Date().getMonth();
@@ -165,22 +168,22 @@ let mySelections = {};
 // --- 同步邏輯 ---
 async function initSync() {
     const indicator = document.getElementById('sync-indicator');
-    indicator.innerText = "正在從雲端讀取...";
+    indicator.innerText = "正在讀取房間資料...";
 
     try {
         const res = await fetch(`${API_BASE}?room=${blobId}`);
         const cloudData = await res.json();
         
-        if (cloudData && Object.keys(cloudData).length > 0) {
-            globalVotes = cloudData;
-            localStorage.setItem('gather_local_cache', JSON.stringify(globalVotes));
-        }
+        // *** 修正點 2：無論雲端有沒有資料，都應該以雲端為準 ***
+        // 如果雲端是空的，就清空本地資料 (代表這是一個乾淨的新房間)
+        globalVotes = (cloudData && Object.keys(cloudData).length > 0) ? cloudData : {};
+        localStorage.setItem(CACHE_KEY, JSON.stringify(globalVotes));
         
         indicator.innerText = "雲端同步已完成";
         indicator.className = "sync-online";
     } catch (e) {
         console.error("同步失敗", e);
-        indicator.innerText = "離線模式 (無法連接 Google)";
+        indicator.innerText = "離線模式 (使用本地暫存)";
         indicator.className = "sync-offline";
     }
     
@@ -190,21 +193,26 @@ async function initSync() {
 
 async function pushCloudData() {
     const indicator = document.getElementById('sync-indicator');
-    indicator.innerText = "上傳至 Google 試算表...";
+    indicator.innerText = "儲存中...";
     
     try {
         await fetch(API_BASE, {
             method: 'POST',
+            mode: 'no-cors', // 解決 Google Apps Script 的 CORS 限制
             body: JSON.stringify({
                 roomId: blobId,
                 data: JSON.stringify(globalVotes)
             })
         });
-        indicator.innerText = "資料已存入雲端";
-        indicator.className = "sync-online";
+        
+        // no-cors 模式無法讀取回傳值，我們手動更新 UI
+        setTimeout(() => {
+            indicator.innerText = "資料已存入雲端";
+            indicator.className = "sync-online";
+        }, 800);
     } catch (e) {
         console.error("上傳失敗", e);
-        indicator.innerText = "上傳失敗，僅存於本機";
+        indicator.innerText = "儲存失敗";
         indicator.className = "sync-offline";
     }
 }
@@ -216,7 +224,7 @@ function enterCalendar() {
     currentUser = name;
     mySelections = {}; 
     
-    // 從全域資料中找出目前使用者的選擇
+    // 初始化使用者的選擇
     for (let date in globalVotes) {
         const l = (globalVotes[date].lunch) ? globalVotes[date].lunch[currentUser] : null;
         const d = (globalVotes[date].dinner) ? globalVotes[date].dinner[currentUser] : null;
@@ -229,12 +237,11 @@ function enterCalendar() {
 }
 
 async function submitVotes() {
-    // 先移除全域資料中該用戶的舊紀錄
+    // 確保 globalVotes 是最新的
     for (let date in globalVotes) {
         if (globalVotes[date].lunch) delete globalVotes[date].lunch[currentUser];
         if (globalVotes[date].dinner) delete globalVotes[date].dinner[currentUser];
     }
-    // 寫入新紀錄
     for (let date in mySelections) {
         if (!globalVotes[date]) globalVotes[date] = { lunch: {}, dinner: {} };
         const s = mySelections[date];
@@ -247,7 +254,7 @@ async function submitVotes() {
             globalVotes[date].dinner[currentUser] = s.dinner; 
         }
     }
-    localStorage.setItem('gather_local_cache', JSON.stringify(globalVotes));
+    localStorage.setItem(CACHE_KEY, JSON.stringify(globalVotes));
     await pushCloudData();
     switchStep(2, 3);
 }
@@ -266,21 +273,22 @@ function switchStep(from, to) {
 function resetData() {
     if (confirm("📢 確定要清除此房間的所有資料嗎？")) {
         globalVotes = {};
-        localStorage.removeItem('gather_local_cache');
-        pushCloudData().then(() => window.location.reload());
+        localStorage.removeItem(CACHE_KEY);
+        pushCloudData().then(() => {
+            alert("資料已清空");
+            window.location.reload();
+        });
     }
 }
 
-// --- 日曆 UI 渲染 ---
+// --- 日曆渲染與 UI (保持不變) ---
 function renderCalendar() {
     const body = document.getElementById('calendar-body');
     body.innerHTML = '';
     const firstDay = new Date(currentYear, currentMonth, 1).getDay();
     const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
     document.getElementById('calendar-month').innerText = `${currentYear}年 ${currentMonth + 1}月`;
-    
     for (let i = 0; i < firstDay; i++) body.innerHTML += `<div></div>`;
-    
     for (let d = 1; d <= daysInMonth; d++) {
         const dateStr = formatDate(currentYear, currentMonth, d);
         const sel = mySelections[dateStr];
@@ -302,7 +310,6 @@ function changeMonth(delta) {
     renderCalendar(); 
 }
 
-// --- 彈窗操作 ---
 function openModal(dateStr) { 
     selectedDate = dateStr; 
     document.getElementById('modal-date-title').innerText = dateStr; 
@@ -338,9 +345,9 @@ function updateModalButtons() {
 
 function backToEdit() { switchStep(3, 2); renderCalendar(); }
 
-// --- 統計結果渲染 ---
 function renderHeatmap() {
     const body = document.getElementById('heatmap-calendar-body');
+    if (!body) return;
     body.innerHTML = '';
     const firstDay = new Date(currentYear, currentMonth, 1).getDay();
     const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
@@ -375,6 +382,7 @@ function renderHeatmap() {
 
 function renderRanking() {
     const listEl = document.getElementById('ranking-list');
+    if (!listEl) return;
     listEl.innerHTML = ''; 
     let rankingData = [];
     
@@ -415,11 +423,10 @@ function renderRanking() {
     });
 }
 
-// --- 工具函式 ---
 function formatDate(y, m, d) { return `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`; }
 function isToday(dateStr) { const t = new Date(); return dateStr === formatDate(t.getFullYear(), t.getMonth(), t.getDate()); }
 
-// 初始化
+// 啟動同步
 initSync();
     </script>
 </body>
