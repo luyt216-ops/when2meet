@@ -22,11 +22,17 @@
         }
         .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); }
         
-        /* 色彩系統 */
-        .color-lunch-sure { background-color: #f97316; color: white; }
-        .color-lunch-maybe { background-color: #fdba74; color: white; } /* 較淺 */
-        .color-dinner-sure { background-color: #7c3aed; color: white; }
-        .color-dinner-maybe { background-color: #ddd6fe; color: #6d28d9; } /* 較淺 */
+        /* 色彩狀態 */
+        .color-lunch-sure { background-color: #f97316 !important; color: white !important; }
+        .color-lunch-maybe { background-color: #ffedd5 !important; color: #9a3412 !important; border-color: #fdba74 !important; }
+        .color-dinner-sure { background-color: #7c3aed !important; color: white !important; }
+        .color-dinner-maybe { background-color: #f5f3ff !important; color: #5b21b6 !important; border-color: #ddd6fe !important; }
+
+        /* 行事曆點點 */
+        .dot-lunch-sure { background-color: #f97316; }
+        .dot-lunch-maybe { background-color: #fdba74; border: 1px solid #f97316; }
+        .dot-dinner-sure { background-color: #7c3aed; }
+        .dot-dinner-maybe { background-color: #ddd6fe; border: 1px solid #7c3aed; }
 
         .btn-primary {
             background: linear-gradient(to right, #f43f5e, #fb923c);
@@ -35,17 +41,17 @@
         .step-transition { transition: all 0.4s ease-in-out; }
         .hidden-step { display: none; opacity: 0; transform: scale(0.95); }
         
-        /* 熱點圖色彩 */
-        .heatmap-max { background: #10b981; color: white; border: 2px solid #fbbf24; }
-        .heatmap-lv3 { background: #6ee7b7; }
-        .heatmap-lv1 { background: #d1fae5; }
-        .heatmap-lv0 { background: white; }
+        /* 熱點圖 */
+        .heatmap-max { background: #10b981; color: white; border: 2px solid #fbbf24; transform: scale(1.05); }
+        .heatmap-lv3 { background: #6ee7b7; color: #064e3b; }
+        .heatmap-lv1 { background: #d1fae5; color: #065f46; }
+        .heatmap-lv0 { background: white; color: #cbd5e1; }
 
         .rank-item { transition: transform 0.2s; }
-        .rank-item:hover { transform: translateX(5px); }
+        .rank-item:hover { transform: translateX(8px); }
     </style>
 </head>
-<body class="pb-20">
+<body class="pb-10">
 
     <!-- Navbar -->
     <nav class="bg-white/70 backdrop-blur-md shadow-sm py-4 px-6 flex justify-between items-center sticky top-0 z-40">
@@ -53,9 +59,6 @@
             說好的今晚見面？你人在哪！
         </div>
         <div class="flex items-center gap-4">
-            <div id="user-display" class="hidden text-sm font-bold text-gray-600 bg-gray-100 px-3 py-1 rounded-full">
-                <span id="current-user-name"></span>
-            </div>
             <button onclick="resetData()" class="text-gray-400 hover:text-red-500 font-bold text-sm transition-colors">
                 重置
             </button>
@@ -70,9 +73,9 @@
                 <div class="w-24 h-24 bg-gradient-to-tr from-rose-100 to-orange-100 text-rose-500 rounded-full flex items-center justify-center mx-auto mb-6 shadow-inner">
                     <i class="fas fa-ghost text-4xl"></i>
                 </div>
-                <h2 class="text-4xl font-black text-gray-800 mb-6">你哪位？</h2>
+                <h2 class="text-4xl font-black text-gray-800 mb-6 uppercase">你哪位？</h2>
             </div>
-            <input type="text" id="input-name" placeholder="輸入你的暱稱..." 
+            <input type="text" id="input-name" placeholder="輸入暱稱..." 
                 class="w-full border-b-4 border-gray-100 bg-transparent px-4 py-4 mb-10 focus:border-rose-400 focus:outline-none transition-all text-center text-2xl font-bold text-gray-700">
             <button onclick="enterCalendar()" 
                 class="w-full btn-primary text-white font-black py-4 rounded-2xl shadow-xl text-xl">
@@ -80,7 +83,7 @@
             </button>
         </section>
 
-        <!-- 第二階段：行事曆選擇 -->
+        <!-- 第二階段：行事曆修改與選擇 -->
         <section id="step-2" class="hidden-step step-transition">
             <div class="glass-card rounded-[2rem] overflow-hidden shadow-2xl">
                 <div class="bg-indigo-600 p-6 text-white flex justify-between items-center">
@@ -89,7 +92,7 @@
                     <button onclick="changeMonth(1)"><i class="fas fa-chevron-right"></i></button>
                 </div>
                 
-                <div class="p-4">
+                <div class="p-4 bg-white/30">
                     <div class="calendar-grid text-center text-sm font-black text-indigo-400 mb-4">
                         <div>日</div><div>一</div><div>二</div><div>三</div><div>四</div><div>五</div><div>六</div>
                     </div>
@@ -97,61 +100,67 @@
                 </div>
 
                 <div class="p-6 border-t bg-white/80">
-                    <p class="text-xs text-center text-gray-400 mb-4 font-bold italic">點擊日期，標註你的空檔</p>
-                    <button onclick="submitVotes()" class="w-full btn-primary text-white font-black py-4 rounded-2xl shadow-lg">
-                        這幾天我可以！ <i class="fas fa-check-circle ml-1"></i>
+                    <div class="flex justify-between items-center mb-4 px-2">
+                        <span class="text-xs font-black text-gray-500"><i class="fas fa-user-circle mr-1"></i> <span id="display-name"></span></span>
+                        <span class="text-[10px] text-orange-400 font-bold italic">點擊日期即可修改時段</span>
+                    </div>
+                    <button onclick="submitVotes()" class="w-full btn-primary text-white font-black py-4 rounded-2xl shadow-lg transform active:scale-95 transition-all">
+                        更新我的空檔！ <i class="fas fa-sync-alt ml-1"></i>
                     </button>
                 </div>
             </div>
         </section>
 
-        <!-- 第三階段：統計排行 -->
+        <!-- 第三階段：排行與統計 -->
         <section id="step-3" class="hidden-step step-transition space-y-6">
             <div class="glass-card rounded-[2rem] p-6">
                 <h3 class="text-2xl font-black text-gray-800 mb-6 flex items-center gap-2">
                     <i class="fas fa-fire text-orange-500"></i> 熱門度大對決
                 </h3>
-                <div id="heatmap-calendar-body" class="calendar-grid gap-2 mb-8"></div>
+                <div id="heatmap-calendar-body" class="calendar-grid gap-2 mb-4"></div>
+                <p class="text-[10px] text-gray-400 text-center font-bold">越深色代表越多人在這天有空</p>
             </div>
 
-            <!-- 排行榜區塊 -->
             <div class="glass-card rounded-[2rem] p-6">
-                <h3 class="text-xl font-black text-gray-800 mb-4 flex items-center gap-2">
-                    <i class="fas fa-trophy text-yellow-500"></i> 時段排名
-                </h3>
-                <div id="ranking-list" class="space-y-3">
-                    <!-- Ranking items will appear here -->
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-xl font-black text-gray-800 flex items-center gap-2">
+                        <i class="fas fa-trophy text-yellow-500"></i> 時段排名
+                    </h3>
                 </div>
+                <div id="ranking-list" class="space-y-3"></div>
             </div>
 
-            <button onclick="location.reload()" class="w-full bg-white/60 py-4 rounded-2xl font-black text-gray-600 border border-white/50">
-                切換使用者投票
-            </button>
+            <div class="grid grid-cols-2 gap-3">
+                <button onclick="backToEdit()" class="bg-indigo-600 text-white py-4 rounded-2xl font-black shadow-lg">
+                    我要改時間
+                </button>
+                <button onclick="location.reload()" class="bg-white text-gray-600 py-4 rounded-2xl font-black border border-gray-200">
+                    換人投票
+                </button>
+            </div>
         </section>
 
     </main>
 
-    <!-- 選項 Modal -->
+    <!-- Modal -->
     <div id="option-modal" class="fixed inset-0 bg-indigo-950/60 backdrop-blur-sm hidden items-center justify-center p-4 z-50">
-        <div class="bg-white w-full max-w-sm rounded-[2.5rem] p-6 shadow-2xl animate__animated animate__zoomIn">
-            <div id="modal-date-title" class="text-center font-black text-2xl text-indigo-900 mb-6"></div>
+        <div class="bg-white w-full max-w-sm rounded-[2.5rem] p-8 shadow-2xl animate__animated animate__zoomIn">
+            <div id="modal-date-title" class="text-center font-black text-2xl text-indigo-900 mb-8 tracking-tighter"></div>
             
-            <div class="grid grid-cols-2 gap-4">
-                <!-- 午餐組 -->
-                <div class="space-y-2">
+            <div class="grid grid-cols-2 gap-6">
+                <div class="space-y-3">
                     <p class="text-center font-black text-orange-500 text-sm">☀️ 午餐</p>
-                    <button onclick="toggleTimeSlot('lunch', 'sure')" id="btn-lunch-sure" class="w-full py-3 rounded-xl border-2 font-bold text-sm">確定可以</button>
-                    <button onclick="toggleTimeSlot('lunch', 'maybe')" id="btn-lunch-maybe" class="w-full py-3 rounded-xl border-2 font-bold text-sm">可能可以</button>
+                    <button onclick="toggleTimeSlot('lunch', 'sure')" id="btn-lunch-sure" class="w-full py-4 rounded-xl border-2 font-bold text-xs transition-all">確定可以</button>
+                    <button onclick="toggleTimeSlot('lunch', 'maybe')" id="btn-lunch-maybe" class="w-full py-4 rounded-xl border-2 font-bold text-xs transition-all">可能可以</button>
                 </div>
-                <!-- 晚餐組 -->
-                <div class="space-y-2">
+                <div class="space-y-3">
                     <p class="text-center font-black text-violet-500 text-sm">🌙 晚餐</p>
-                    <button onclick="toggleTimeSlot('dinner', 'sure')" id="btn-dinner-sure" class="w-full py-3 rounded-xl border-2 font-bold text-sm">確定可以</button>
-                    <button onclick="toggleTimeSlot('dinner', 'maybe')" id="btn-dinner-maybe" class="w-full py-3 rounded-xl border-2 font-bold text-sm">可能可以</button>
+                    <button onclick="toggleTimeSlot('dinner', 'sure')" id="btn-dinner-sure" class="w-full py-4 rounded-xl border-2 font-bold text-xs transition-all">確定可以</button>
+                    <button onclick="toggleTimeSlot('dinner', 'maybe')" id="btn-dinner-maybe" class="w-full py-4 rounded-xl border-2 font-bold text-xs transition-all">可能可以</button>
                 </div>
             </div>
             
-            <button onclick="closeModal()" class="w-full mt-8 bg-indigo-900 text-white font-black py-4 rounded-2xl">選好了</button>
+            <button onclick="closeModal()" class="w-full mt-10 bg-indigo-950 text-white font-black py-4 rounded-2xl shadow-lg">修改完成</button>
         </div>
     </div>
 
@@ -160,24 +169,35 @@
         let currentYear = new Date().getFullYear();
         let currentMonth = new Date().getMonth();
         let selectedDate = null;
-        let mySelections = {}; // { "date": { lunch: "sure/maybe/null", dinner: "sure/maybe/null" } }
+        let mySelections = {}; // 使用者本次操作的選取狀態
 
-        // 資料結構：globalVotes["2024-12-01"]["lunch"] = { "姓名": "sure" }
-        let globalVotes = JSON.parse(localStorage.getItem('gathering_votes_v4')) || {};
+        // globalVotes[date][slot][userName] = "sure/maybe"
+        let globalVotes = JSON.parse(localStorage.getItem('gathering_votes_v6')) || {};
 
         function resetData() {
-            if (confirm("📢 確定要重置所有資料嗎？這將會清除所有人的投票！")) {
-                localStorage.removeItem('gathering_votes_v4');
+            if (confirm("📢 確定要重置嗎？所有紀錄都會消失喔！")) {
+                localStorage.removeItem('gathering_votes_v6');
                 window.location.reload();
             }
         }
 
+        // 核心：進入行事曆並載入舊紀錄
         function enterCalendar() {
             const name = document.getElementById('input-name').value.trim();
             if (!name) return alert("要填名字喔！");
             currentUser = name;
-            document.getElementById('current-user-name').innerText = currentUser;
-            document.getElementById('user-display').classList.remove('hidden');
+            
+            // 讀取該使用者的歷史紀錄，存入暫存的 mySelections
+            mySelections = {}; 
+            for (let date in globalVotes) {
+                const l = globalVotes[date].lunch ? globalVotes[date].lunch[currentUser] : null;
+                const d = globalVotes[date].dinner ? globalVotes[date].dinner[currentUser] : null;
+                if (l || d) {
+                    mySelections[date] = { lunch: l, dinner: d };
+                }
+            }
+
+            document.getElementById('display-name').innerText = currentUser;
             switchStep(1, 2);
             renderCalendar();
         }
@@ -205,11 +225,11 @@
                 const sel = mySelections[dateStr];
                 
                 body.innerHTML += `
-                    <div onclick="openModal('${dateStr}')" class="aspect-square flex flex-col items-center justify-center rounded-xl bg-white/40 border border-white/60 cursor-pointer relative transition-all hover:bg-white">
-                        <span class="text-sm font-black ${isToday(dateStr) ? 'text-rose-500 underline' : 'text-indigo-900'}">${d}</span>
+                    <div onclick="openModal('${dateStr}')" class="aspect-square flex flex-col items-center justify-center rounded-xl bg-white/50 border border-white/60 cursor-pointer relative transition-all hover:bg-white active:scale-95">
+                        <span class="text-xs font-black ${isToday(dateStr) ? 'text-rose-500' : 'text-indigo-900'}">${d}</span>
                         <div class="flex gap-1 mt-1">
-                            ${sel?.lunch ? `<span class="w-2 h-2 rounded-full ${sel.lunch === 'sure' ? 'color-lunch-sure' : 'color-lunch-maybe'}"></span>` : ''}
-                            ${sel?.dinner ? `<span class="w-2 h-2 rounded-full ${sel.dinner === 'sure' ? 'color-dinner-sure' : 'color-dinner-maybe'}"></span>` : ''}
+                            ${sel?.lunch ? `<span class="w-1.5 h-1.5 rounded-full ${sel.lunch === 'sure' ? 'dot-lunch-sure' : 'dot-lunch-maybe'}"></span>` : ''}
+                            ${sel?.dinner ? `<span class="w-1.5 h-1.5 rounded-full ${sel.dinner === 'sure' ? 'dot-dinner-sure' : 'dot-dinner-maybe'}"></span>` : ''}
                         </div>
                     </div>
                 `;
@@ -237,8 +257,6 @@
 
         function toggleTimeSlot(slot, type) {
             if (!mySelections[selectedDate]) mySelections[selectedDate] = { lunch: null, dinner: null };
-            
-            // 如果點擊已選中的，就取消
             if (mySelections[selectedDate][slot] === type) {
                 mySelections[selectedDate][slot] = null;
             } else {
@@ -249,31 +267,43 @@
 
         function updateModalButtons() {
             const sel = mySelections[selectedDate] || { lunch: null, dinner: null };
-            
-            const config = {
-                'lunch-sure': { el: 'btn-lunch-sure', color: 'border-orange-500 bg-orange-500 text-white', off: 'border-gray-100 text-gray-300' },
-                'lunch-maybe': { el: 'btn-lunch-maybe', color: 'border-orange-300 bg-orange-200 text-orange-700', off: 'border-gray-100 text-gray-300' },
-                'dinner-sure': { el: 'btn-dinner-sure', color: 'border-violet-600 bg-violet-600 text-white', off: 'border-gray-100 text-gray-300' },
-                'dinner-maybe': { el: 'btn-dinner-maybe', color: 'border-violet-300 bg-violet-200 text-violet-700', off: 'border-gray-100 text-gray-300' }
-            };
-
-            for (let key in config) {
-                const [slot, type] = key.split('-');
-                const btn = document.getElementById(config[key].el);
-                btn.className = sel[slot] === type ? `w-full py-3 rounded-xl border-2 font-bold text-sm ${config[key].color}` : `w-full py-3 rounded-xl border-2 font-bold text-sm ${config[key].off}`;
-            }
+            const configs = [
+                { id: 'btn-lunch-sure', active: sel.lunch === 'sure', cls: 'color-lunch-sure' },
+                { id: 'btn-lunch-maybe', active: sel.lunch === 'maybe', cls: 'color-lunch-maybe' },
+                { id: 'btn-dinner-sure', active: sel.dinner === 'sure', cls: 'color-dinner-sure' },
+                { id: 'btn-dinner-maybe', active: sel.dinner === 'maybe', cls: 'color-dinner-maybe' }
+            ];
+            configs.forEach(c => {
+                const el = document.getElementById(c.id);
+                el.className = `w-full py-4 rounded-xl border-2 font-bold text-xs transition-all ${c.active ? c.cls : 'border-gray-100 text-gray-300'}`;
+            });
         }
 
+        // 送出投票：同步全域資料並重新渲染統計
         function submitVotes() {
+            // 1. 先從全域資料中移除該使用者目前的所有紀錄
+            for (let date in globalVotes) {
+                if (globalVotes[date].lunch) delete globalVotes[date].lunch[currentUser];
+                if (globalVotes[date].dinner) delete globalVotes[date].dinner[currentUser];
+            }
+
+            // 2. 根據 mySelections 寫入新的全域紀錄
             for (let date in mySelections) {
                 if (!globalVotes[date]) globalVotes[date] = { lunch: {}, dinner: {} };
-                if (mySelections[date].lunch) globalVotes[date].lunch[currentUser] = mySelections[date].lunch;
-                if (mySelections[date].dinner) globalVotes[date].dinner[currentUser] = mySelections[date].dinner;
+                const s = mySelections[date];
+                if (s.lunch) globalVotes[date].lunch[currentUser] = s.lunch;
+                if (s.dinner) globalVotes[date].dinner[currentUser] = s.dinner;
             }
-            localStorage.setItem('gathering_votes_v4', JSON.stringify(globalVotes));
+
+            localStorage.setItem('gathering_votes_v6', JSON.stringify(globalVotes));
             renderHeatmap();
             renderRanking();
             switchStep(2, 3);
+        }
+
+        function backToEdit() {
+            switchStep(3, 2);
+            renderCalendar();
         }
 
         function renderHeatmap() {
@@ -283,21 +313,23 @@
             const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
             
             let max = 0;
+            const counts = {};
             for (let d = 1; d <= daysInMonth; d++) {
-                const dateStr = formatDate(currentYear, currentMonth, d);
-                const count = Object.keys(globalVotes[dateStr]?.lunch || {}).length + Object.keys(globalVotes[dateStr]?.dinner || {}).length;
+                const dStr = formatDate(currentYear, currentMonth, d);
+                const count = Object.keys(globalVotes[dStr]?.lunch || {}).length + Object.keys(globalVotes[dStr]?.dinner || {}).length;
+                counts[dStr] = count;
                 if (count > max) max = count;
             }
 
             for (let i = 0; i < firstDay; i++) body.innerHTML += `<div></div>`;
             for (let d = 1; d <= daysInMonth; d++) {
-                const dateStr = formatDate(currentYear, currentMonth, d);
-                const count = Object.keys(globalVotes[dateStr]?.lunch || {}).length + Object.keys(globalVotes[dateStr]?.dinner || {}).length;
+                const dStr = formatDate(currentYear, currentMonth, d);
+                const c = counts[dStr];
                 let lv = 'heatmap-lv0';
-                if (max > 0) {
-                    if (count === max) lv = 'heatmap-max';
-                    else if (count >= max * 0.6) lv = 'heatmap-lv3';
-                    else if (count > 0) lv = 'heatmap-lv1';
+                if (max > 0 && c > 0) {
+                    if (c === max) lv = 'heatmap-max';
+                    else if (c >= max * 0.6) lv = 'heatmap-lv3';
+                    else lv = 'heatmap-lv1';
                 }
                 body.innerHTML += `<div class="aspect-square flex items-center justify-center rounded-lg text-xs font-black border border-gray-100 ${lv}">${d}</div>`;
             }
@@ -310,56 +342,43 @@
 
             for (let date in globalVotes) {
                 ['lunch', 'dinner'].forEach(slot => {
-                    const votes = globalVotes[date][slot];
-                    const voters = Object.keys(votes);
+                    const v = globalVotes[date][slot] || {};
+                    const voters = Object.keys(v);
                     if (voters.length > 0) {
-                        items.push({
-                            date, slot, 
-                            total: voters.length,
-                            voters: votes // { "小明": "sure" }
-                        });
+                        items.push({ date, slot, total: voters.length, voters: v });
                     }
                 });
             }
 
-            // 排序：票數多到少
+            // 按總票數由多到少排序
             items.sort((a, b) => b.total - a.total);
 
             if (items.length === 0) {
-                listEl.innerHTML = '<p class="text-gray-400 text-center py-10">目前尚無投票資料</p>';
+                listEl.innerHTML = '<p class="text-gray-400 text-center py-10 font-bold">還沒有人投票喔！</p>';
                 return;
             }
 
             items.forEach((item, index) => {
-                const sureCount = Object.values(item.voters).filter(v => v === 'sure').length;
-                const maybeCount = Object.values(item.voters).filter(v => v === 'maybe').length;
-                
                 const div = document.createElement('div');
-                div.className = "rank-item bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex flex-col gap-2";
+                div.className = "rank-item bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex flex-col gap-3";
                 
-                let voterBadges = "";
+                let badges = "";
                 for (let name in item.voters) {
                     const type = item.voters[name];
-                    const colorClass = item.slot === 'lunch' 
-                        ? (type === 'sure' ? 'color-lunch-sure' : 'color-lunch-maybe')
-                        : (type === 'sure' ? 'color-dinner-sure' : 'color-dinner-maybe');
-                    voterBadges += `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${colorClass}">${name}</span> `;
+                    const cls = item.slot === 'lunch' ? (type === 'sure' ? 'color-lunch-sure' : 'color-lunch-maybe') : (type === 'sure' ? 'color-dinner-sure' : 'color-dinner-maybe');
+                    badges += `<span class="px-2 py-0.5 rounded-full text-[10px] font-black ${cls}">${name}</span> `;
                 }
 
                 div.innerHTML = `
                     <div class="flex justify-between items-center">
                         <div class="flex items-center gap-2">
-                            <span class="w-6 h-6 flex items-center justify-center rounded-full bg-indigo-100 text-indigo-600 font-black text-xs">${index + 1}</span>
-                            <span class="font-black text-gray-700">${item.date}</span>
-                            <span class="text-sm font-bold ${item.slot === 'lunch' ? 'text-orange-500' : 'text-violet-500'}">${item.slot === 'lunch' ? '午餐 ☀️' : '晚餐 🌙'}</span>
+                            <span class="w-6 h-6 flex items-center justify-center rounded-full bg-indigo-900 text-white font-black text-[10px]">${index + 1}</span>
+                            <span class="font-black text-gray-800 tracking-tighter">${item.date}</span>
+                            <span class="text-xs font-black ${item.slot === 'lunch' ? 'text-orange-500' : 'text-violet-500'}">${item.slot === 'lunch' ? '午餐 ☀️' : '晚餐 🌙'}</span>
                         </div>
-                        <div class="text-right">
-                            <span class="text-xl font-black text-gray-800">${item.total}</span> <span class="text-xs text-gray-400 font-bold">票</span>
-                        </div>
+                        <div class="text-xl font-black text-gray-800">${item.total}<span class="text-[10px] ml-0.5 text-gray-400 font-bold">P</span></div>
                     </div>
-                    <div class="flex flex-wrap gap-1 mt-1">
-                        ${voterBadges}
-                    </div>
+                    <div class="flex flex-wrap gap-1">${badges}</div>
                 `;
                 listEl.appendChild(div);
             });
