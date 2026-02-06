@@ -29,7 +29,12 @@
         .dot-lunch-maybe { background-color: #fdba74; border: 1px solid #f97316; }
         .dot-dinner-sure { background-color: #7c3aed; }
         .dot-dinner-maybe { background-color: #ddd6fe; border: 1px solid #7c3aed; }
+        
+        /* 正常的按鈕顏色 */
         .btn-primary { background: linear-gradient(to right, #f43f5e, #fb923c); transition: all 0.3s ease; }
+        /* 禁用時的按鈕顏色 */
+        .btn-disabled { background: #cbd5e1 !important; cursor: not-allowed !important; opacity: 0.7; }
+
         .step-transition { transition: all 0.4s ease-in-out; }
         .hidden-step { display: none; opacity: 0; transform: scale(0.95); }
         .heatmap-max { background: #10b981; color: white; border: 2px solid #fbbf24; transform: scale(1.05); }
@@ -40,13 +45,15 @@
         .rank-item:hover { transform: translateX(8px); }
         
         #sync-indicator { position: fixed; bottom: 10px; right: 10px; font-size: 10px; padding: 2px 8px; border-radius: 99px; z-index: 100; }
-        .sync-online { background: #d1fae5; color: #065f46; }
+        .sync-online { background: #d1fae5; color: #064e3b; }
         .sync-offline { background: #fee2e2; color: #991b1b; }
+        .sync-loading { background: #fef9c3; color: #854d0e; }
     </style>
 </head>
 <body class="pb-10">
 
-    <div id="sync-indicator" class="sync-online"><i class="fas fa-circle text-[6px] mr-1 animate-pulse"></i> 連線中...</div>
+    <!-- 狀態指示燈，初始設為 loading -->
+    <div id="sync-indicator" class="sync-loading"><i class="fas fa-spinner fa-spin mr-1"></i> 資料連線中...</div>
 
     <nav class="bg-white/70 backdrop-blur-md shadow-sm py-4 px-6 flex justify-between items-center sticky top-0 z-40">
         <div class="text-xl font-black bg-clip-text text-transparent bg-gradient-to-r from-rose-500 to-orange-500">
@@ -67,9 +74,12 @@
             </div>
             <input type="text" id="input-name" placeholder="輸入你的暱稱..." 
                 class="w-full border-b-4 border-gray-100 bg-transparent px-4 py-4 mb-10 focus:border-rose-400 focus:outline-none transition-all text-center text-2xl font-bold text-gray-700">
-            <button onclick="enterCalendar()" class="w-full btn-primary text-white font-black py-4 rounded-2xl shadow-xl text-xl">
-                你啥米時候有空？ <i class="fas fa-calendar-alt ml-2 text-sm"></i>
+            
+            <!-- 關鍵：初始加上 btn-disabled 並設為 disabled -->
+            <button id="login-btn" disabled onclick="enterCalendar()" class="w-full btn-primary btn-disabled text-white font-black py-4 rounded-2xl shadow-xl text-xl">
+                <span>同步中...請稍候</span> <i class="fas fa-sync fa-spin ml-2 text-sm"></i>
             </button>
+
             <div id="room-info" class="mt-8 p-3 bg-white/50 rounded-xl border border-dashed border-gray-200 hidden">
                 <p class="text-[10px] text-gray-400 font-bold mb-1 uppercase tracking-widest">分享此網址讓大家填寫</p>
                 <input type="text" id="share-url" readonly onclick="this.select(); document.execCommand('copy'); alert('連結已複製！')" class="w-full text-[10px] bg-white border-none text-rose-400 font-bold text-center cursor-pointer">
@@ -78,6 +88,7 @@
 
         <!-- Step 2: Selection -->
         <section id="step-2" class="hidden-step step-transition">
+            <!-- 內容同原版 -->
             <div class="glass-card rounded-[2rem] overflow-hidden shadow-2xl">
                 <div class="bg-indigo-600 p-6 text-white flex justify-between items-center">
                     <button onclick="changeMonth(-1)"><i class="fas fa-chevron-left"></i></button>
@@ -123,7 +134,7 @@
         </section>
     </main>
 
-    <!-- Modal -->
+    <!-- Modal (內容同原版) -->
     <div id="option-modal" class="fixed inset-0 bg-indigo-950/60 backdrop-blur-sm hidden items-center justify-center p-4 z-50">
         <div class="bg-white w-full max-sm rounded-[2.5rem] p-8 shadow-2xl animate__animated animate__zoomIn">
             <div id="modal-date-title" class="text-center font-black text-2xl text-indigo-900 mb-8 border-b pb-4"></div>
@@ -144,19 +155,15 @@
     </div>
 
     <script>
-// 1. Google Apps Script API 網址 (已保留你提供的)
-// 1. Google Apps Script API 網址
 const API_BASE = "https://script.google.com/macros/s/AKfycbwwW7w7OfubUCh4tPW4zdMlkOB5eCs4KGwC-FPyEAaG68xx1nbFu2G6SeMMbb2AjWWt/exec";
 
 let blobId = new URLSearchParams(window.location.search).get('room');
-// 如果沒有 room ID，隨機產生一個
 if (!blobId) {
     blobId = 'room_' + Math.random().toString(36).substr(2, 9);
     const newUrl = window.location.origin + window.location.pathname + `?room=${blobId}`;
     window.history.replaceState({ path: newUrl }, '', newUrl);
 }
 
-// *** 修正點 1：本地快取名稱與房間 ID 綁定，避免房 A 影響房 B ***
 const CACHE_KEY = `gather_cache_${blobId}`;
 let globalVotes = JSON.parse(localStorage.getItem(CACHE_KEY)) || {};
 let currentUser = "";
@@ -164,54 +171,70 @@ let currentYear = new Date().getFullYear();
 let currentMonth = new Date().getMonth();
 let selectedDate = null;
 let mySelections = {};
+let isSyncing = true; // 同步狀態旗標
 
 // --- 同步邏輯 ---
 async function initSync() {
+    isSyncing = true;
     const indicator = document.getElementById('sync-indicator');
-    indicator.innerText = "正在讀取房間資料...";
+    const loginBtn = document.getElementById('login-btn');
+    
+    indicator.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> 正在讀取房間資料...';
+    indicator.className = "sync-loading";
 
     try {
         const res = await fetch(`${API_BASE}?room=${blobId}`);
         const cloudData = await res.json();
         
-        // *** 修正點 2：無論雲端有沒有資料，都應該以雲端為準 ***
-        // 如果雲端是空的，就清空本地資料 (代表這是一個乾淨的新房間)
         globalVotes = (cloudData && Object.keys(cloudData).length > 0) ? cloudData : {};
         localStorage.setItem(CACHE_KEY, JSON.stringify(globalVotes));
         
-        indicator.innerText = "雲端同步已完成";
+        indicator.innerHTML = '<i class="fas fa-check-circle mr-1"></i> 雲端同步已完成';
         indicator.className = "sync-online";
+        
+        // 解鎖按鈕
+        unlockApp();
     } catch (e) {
         console.error("同步失敗", e);
-        indicator.innerText = "離線模式 (使用本地暫存)";
+        indicator.innerHTML = '<i class="fas fa-exclamation-triangle mr-1"></i> 離線模式 (使用暫存)';
         indicator.className = "sync-offline";
+        
+        // 即使失敗也讓使用者進入，但會標註是離線模式
+        unlockApp();
     }
     
     document.getElementById('room-info').classList.remove('hidden');
     document.getElementById('share-url').value = window.location.href;
 }
 
+// 解鎖 UI 的函式
+function unlockApp() {
+    isSyncing = false;
+    const loginBtn = document.getElementById('login-btn');
+    loginBtn.disabled = false;
+    loginBtn.classList.remove('btn-disabled');
+    loginBtn.innerHTML = '你啥米時候有空？ <i class="fas fa-calendar-alt ml-2 text-sm"></i>';
+}
+
 async function pushCloudData() {
     const indicator = document.getElementById('sync-indicator');
-    indicator.innerText = "儲存中...";
+    indicator.innerHTML = '<i class="fas fa-cloud-upload-alt animate-bounce mr-1"></i> 儲存中...';
     
     try {
         await fetch(API_BASE, {
             method: 'POST',
-            mode: 'no-cors', // 解決 Google Apps Script 的 CORS 限制
+            mode: 'no-cors',
             body: JSON.stringify({
                 roomId: blobId,
                 data: JSON.stringify(globalVotes)
             })
         });
         
-        // no-cors 模式無法讀取回傳值，我們手動更新 UI
         setTimeout(() => {
-            indicator.innerText = "資料已存入雲端";
+            indicator.innerHTML = '<i class="fas fa-check-circle mr-1"></i> 資料已同步至雲端';
             indicator.className = "sync-online";
         }, 800);
     } catch (e) {
-        console.error("上傳失敗", e);
         indicator.innerText = "儲存失敗";
         indicator.className = "sync-offline";
     }
@@ -219,12 +242,14 @@ async function pushCloudData() {
 
 // --- 流程控制 ---
 function enterCalendar() {
+    // 雙重保險：如果還在同步中，不執行
+    if (isSyncing) return;
+
     const name = document.getElementById('input-name').value.trim();
     if (!name) return alert("要填名字喔！");
     currentUser = name;
     mySelections = {}; 
     
-    // 初始化使用者的選擇
     for (let date in globalVotes) {
         const l = (globalVotes[date].lunch) ? globalVotes[date].lunch[currentUser] : null;
         const d = (globalVotes[date].dinner) ? globalVotes[date].dinner[currentUser] : null;
@@ -237,7 +262,6 @@ function enterCalendar() {
 }
 
 async function submitVotes() {
-    // 確保 globalVotes 是最新的
     for (let date in globalVotes) {
         if (globalVotes[date].lunch) delete globalVotes[date].lunch[currentUser];
         if (globalVotes[date].dinner) delete globalVotes[date].dinner[currentUser];
@@ -281,7 +305,7 @@ function resetData() {
     }
 }
 
-// --- 日曆渲染與 UI (保持不變) ---
+// --- 日曆渲染與 UI ---
 function renderCalendar() {
     const body = document.getElementById('calendar-body');
     body.innerHTML = '';
