@@ -144,11 +144,11 @@
     </div>
 
     <script>
-        // 1. 請在此處貼上你從 Google Apps Script 取得的網址
+// 1. Google Apps Script API 網址 (已保留你提供的)
 const API_BASE = "https://script.google.com/macros/s/AKfycbwwW7w7OfubUCh4tPW4zdMlkOB5eCs4KGwC-FPyEAaG68xx1nbFu2G6SeMMbb2AjWWt/exec";
 
 let blobId = new URLSearchParams(window.location.search).get('room');
-// 如果沒有 room ID，隨機產生一個（例如：目前時間戳記）
+// 如果沒有 room ID，隨機產生一個
 if (!blobId) {
     blobId = 'room_' + Math.random().toString(36).substr(2, 9);
     const newUrl = window.location.origin + window.location.pathname + `?room=${blobId}`;
@@ -162,18 +162,16 @@ let currentMonth = new Date().getMonth();
 let selectedDate = null;
 let mySelections = {};
 
-// --- 同步邏輯：改用 Google Sheets ---
+// --- 同步邏輯 ---
 async function initSync() {
     const indicator = document.getElementById('sync-indicator');
     indicator.innerText = "正在從雲端讀取...";
 
     try {
-        // GAS 的 GET 請求
         const res = await fetch(`${API_BASE}?room=${blobId}`);
         const cloudData = await res.json();
         
-        // 只有在雲端有資料時才覆蓋本地
-        if (Object.keys(cloudData).length > 0) {
+        if (cloudData && Object.keys(cloudData).length > 0) {
             globalVotes = cloudData;
             localStorage.setItem('gather_local_cache', JSON.stringify(globalVotes));
         }
@@ -186,7 +184,6 @@ async function initSync() {
         indicator.className = "sync-offline";
     }
     
-    // 顯示分享網址
     document.getElementById('room-info').classList.remove('hidden');
     document.getElementById('share-url').value = window.location.href;
 }
@@ -196,7 +193,6 @@ async function pushCloudData() {
     indicator.innerText = "上傳至 Google 試算表...";
     
     try {
-        // GAS 的 POST 請求
         await fetch(API_BASE, {
             method: 'POST',
             body: JSON.stringify({
@@ -213,29 +209,32 @@ async function pushCloudData() {
     }
 }
 
-// --- 以下 UI 與 投票邏輯保持不變 ---
-
+// --- 流程控制 ---
 function enterCalendar() {
     const name = document.getElementById('input-name').value.trim();
     if (!name) return alert("要填名字喔！");
     currentUser = name;
     mySelections = {}; 
+    
+    // 從全域資料中找出目前使用者的選擇
     for (let date in globalVotes) {
         const l = (globalVotes[date].lunch) ? globalVotes[date].lunch[currentUser] : null;
         const d = (globalVotes[date].dinner) ? globalVotes[date].dinner[currentUser] : null;
         if (l || d) mySelections[date] = { lunch: l, dinner: d };
     }
+    
     document.getElementById('display-name').innerText = currentUser;
     switchStep(1, 2);
     renderCalendar();
 }
 
 async function submitVotes() {
-    // 清除該用戶舊資料重新寫入
+    // 先移除全域資料中該用戶的舊紀錄
     for (let date in globalVotes) {
         if (globalVotes[date].lunch) delete globalVotes[date].lunch[currentUser];
         if (globalVotes[date].dinner) delete globalVotes[date].dinner[currentUser];
     }
+    // 寫入新紀錄
     for (let date in mySelections) {
         if (!globalVotes[date]) globalVotes[date] = { lunch: {}, dinner: {} };
         const s = mySelections[date];
@@ -253,6 +252,17 @@ async function submitVotes() {
     switchStep(2, 3);
 }
 
+function switchStep(from, to) {
+    document.getElementById(`step-${from}`).classList.add('hidden-step');
+    setTimeout(() => {
+        document.getElementById(`step-${from}`).style.display = 'none';
+        const toStep = document.getElementById(`step-${to}`);
+        toStep.style.display = 'block';
+        setTimeout(() => toStep.classList.remove('hidden-step'), 50);
+        if (to === 3) { renderHeatmap(); renderRanking(); }
+    }, 400);
+}
+
 function resetData() {
     if (confirm("📢 確定要清除此房間的所有資料嗎？")) {
         globalVotes = {};
@@ -261,8 +271,156 @@ function resetData() {
     }
 }
 
-// ... (其餘 renderCalendar, renderHeatmap, renderRanking 等 UI 函式均不需修改)
-// 確保原本的 renderCalendar, changeMonth, openModal, closeModal, toggleTimeSlot, updateModalButtons, backToEdit, renderHeatmap, renderRanking, formatDate, isToday 都在 script 中
+// --- 日曆 UI 渲染 ---
+function renderCalendar() {
+    const body = document.getElementById('calendar-body');
+    body.innerHTML = '';
+    const firstDay = new Date(currentYear, currentMonth, 1).getDay();
+    const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+    document.getElementById('calendar-month').innerText = `${currentYear}年 ${currentMonth + 1}月`;
+    
+    for (let i = 0; i < firstDay; i++) body.innerHTML += `<div></div>`;
+    
+    for (let d = 1; d <= daysInMonth; d++) {
+        const dateStr = formatDate(currentYear, currentMonth, d);
+        const sel = mySelections[dateStr];
+        body.innerHTML += `
+            <div onclick="openModal('${dateStr}')" class="aspect-square flex flex-col items-center justify-center rounded-xl bg-white/40 border border-white/60 cursor-pointer relative transition-all hover:bg-white active:scale-95 shadow-sm">
+                <span class="text-xs font-black ${isToday(dateStr) ? 'text-rose-500' : 'text-indigo-900'}">${d}</span>
+                <div class="flex gap-1 mt-1">
+                    ${sel?.lunch ? `<span class="w-1.5 h-1.5 rounded-full ${sel.lunch === 'sure' ? 'dot-lunch-sure' : 'dot-lunch-maybe'}"></span>` : ''}
+                    ${sel?.dinner ? `<span class="w-1.5 h-1.5 rounded-full ${sel.dinner === 'sure' ? 'dot-dinner-sure' : 'dot-dinner-maybe'}"></span>` : ''}
+                </div>
+            </div>`;
+    }
+}
+
+function changeMonth(delta) { 
+    currentMonth += delta; 
+    if (currentMonth > 11) { currentMonth = 0; currentYear++; } 
+    if (currentMonth < 0) { currentMonth = 11; currentYear--; } 
+    renderCalendar(); 
+}
+
+// --- 彈窗操作 ---
+function openModal(dateStr) { 
+    selectedDate = dateStr; 
+    document.getElementById('modal-date-title').innerText = dateStr; 
+    updateModalButtons(); 
+    document.getElementById('option-modal').style.display = 'flex'; 
+}
+
+function closeModal() { 
+    document.getElementById('option-modal').style.display = 'none'; 
+    renderCalendar(); 
+}
+
+function toggleTimeSlot(slot, type) { 
+    if (!mySelections[selectedDate]) mySelections[selectedDate] = { lunch: null, dinner: null }; 
+    if (mySelections[selectedDate][slot] === type) mySelections[selectedDate][slot] = null; 
+    else mySelections[selectedDate][slot] = type; 
+    updateModalButtons(); 
+}
+
+function updateModalButtons() {
+    const sel = mySelections[selectedDate] || { lunch: null, dinner: null };
+    const configs = [
+        { id: 'btn-lunch-sure', active: sel.lunch === 'sure', cls: 'color-lunch-sure' }, 
+        { id: 'btn-lunch-maybe', active: sel.lunch === 'maybe', cls: 'color-lunch-maybe' }, 
+        { id: 'btn-dinner-sure', active: sel.dinner === 'sure', cls: 'color-dinner-sure' }, 
+        { id: 'btn-dinner-maybe', active: sel.dinner === 'maybe', cls: 'color-dinner-maybe' }
+    ];
+    configs.forEach(c => { 
+        const el = document.getElementById(c.id); 
+        el.className = `w-full py-4 rounded-xl border-2 font-bold text-xs transition-all ${c.active ? c.cls : 'border-gray-100 text-gray-300'}`; 
+    });
+}
+
+function backToEdit() { switchStep(3, 2); renderCalendar(); }
+
+// --- 統計結果渲染 ---
+function renderHeatmap() {
+    const body = document.getElementById('heatmap-calendar-body');
+    body.innerHTML = '';
+    const firstDay = new Date(currentYear, currentMonth, 1).getDay();
+    const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+    let maxCount = 0; 
+    const counts = {}; 
+    const uniqueVoters = new Set();
+    
+    for (let d = 1; d <= daysInMonth; d++) {
+        const dateStr = formatDate(currentYear, currentMonth, d);
+        const lVoters = Object.keys(globalVotes[dateStr]?.lunch || {});
+        const dVoters = Object.keys(globalVotes[dateStr]?.dinner || {});
+        counts[dateStr] = lVoters.length + dVoters.length;
+        if (counts[dateStr] > maxCount) maxCount = counts[dateStr];
+        lVoters.forEach(v => uniqueVoters.add(v)); 
+        dVoters.forEach(v => uniqueVoters.add(v));
+    }
+    
+    document.getElementById('total-voters-count').innerText = `${uniqueVoters.size} 人參與`;
+    for (let i = 0; i < firstDay; i++) body.innerHTML += `<div></div>`;
+    for (let d = 1; d <= daysInMonth; d++) {
+        const dateStr = formatDate(currentYear, currentMonth, d);
+        const count = counts[dateStr];
+        let lv = 'heatmap-lv0';
+        if (maxCount > 0 && count > 0) { 
+            if (count === maxCount) lv = 'heatmap-max'; 
+            else if (count >= maxCount * 0.6) lv = 'heatmap-lv3'; 
+            else lv = 'heatmap-lv1'; 
+        }
+        body.innerHTML += `<div class="aspect-square flex items-center justify-center rounded-lg text-xs font-black border border-gray-100 ${lv}">${d}</div>`;
+    }
+}
+
+function renderRanking() {
+    const listEl = document.getElementById('ranking-list');
+    listEl.innerHTML = ''; 
+    let rankingData = [];
+    
+    for (let date in globalVotes) {
+        ['lunch', 'dinner'].forEach(slot => {
+            const votersMap = globalVotes[date][slot] || {};
+            const votersList = Object.keys(votersMap);
+            if (votersList.length > 0) rankingData.push({ date, slot, total: votersList.length, voters: votersMap });
+        });
+    }
+    
+    rankingData.sort((a, b) => b.total - a.total);
+    if (rankingData.length === 0) { 
+        listEl.innerHTML = '<p class="text-gray-400 text-center py-10 font-bold italic">尚無人填寫</p>'; 
+        return; 
+    }
+    
+    rankingData.forEach((item, index) => {
+        const div = document.createElement('div');
+        div.className = "rank-item bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex flex-col gap-3";
+        let badges = "";
+        for (let name in item.voters) {
+            const type = item.voters[name];
+            const cls = item.slot === 'lunch' ? (type === 'sure' ? 'color-lunch-sure' : 'color-lunch-maybe') : (type === 'sure' ? 'color-dinner-sure' : 'color-dinner-maybe');
+            badges += `<span class="px-2 py-0.5 rounded-full text-[10px] font-black ${cls}">${name}</span> `;
+        }
+        div.innerHTML = `
+            <div class="flex justify-between items-center">
+                <div class="flex items-center gap-2">
+                    <span class="w-6 h-6 flex items-center justify-center rounded-full bg-indigo-900 text-white font-black text-[10px]">${index + 1}</span>
+                    <span class="font-black text-gray-800 tracking-tighter">${item.date}</span>
+                    <span class="text-xs font-black ${item.slot === 'lunch' ? 'text-orange-500' : 'text-violet-500'}">${item.slot === 'lunch' ? '午餐 ☀️' : '晚餐 🌙'}</span>
+                </div>
+                <div class="text-xl font-black text-gray-800">${item.total}<span class="text-[10px] ml-0.5 text-gray-400 font-bold">P</span></div>
+            </div>
+            <div class="flex flex-wrap gap-1">${badges}</div>`;
+        listEl.appendChild(div);
+    });
+}
+
+// --- 工具函式 ---
+function formatDate(y, m, d) { return `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`; }
+function isToday(dateStr) { const t = new Date(); return dateStr === formatDate(t.getFullYear(), t.getMonth(), t.getDate()); }
+
+// 初始化
+initSync();
     </script>
 </body>
 </html>
