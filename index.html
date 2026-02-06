@@ -21,54 +21,46 @@
             box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.1);
         }
         .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); }
-        
-        /* 狀態顏色 */
         .color-lunch-sure { background-color: #f97316 !important; color: white !important; }
         .color-lunch-maybe { background-color: #ffedd5 !important; color: #9a3412 !important; border-color: #fdba74 !important; }
         .color-dinner-sure { background-color: #7c3aed !important; color: white !important; }
         .color-dinner-maybe { background-color: #f5f3ff !important; color: #5b21b6 !important; border-color: #ddd6fe !important; }
-
-        /* 行事曆點點 */
         .dot-lunch-sure { background-color: #f97316; }
         .dot-lunch-maybe { background-color: #fdba74; border: 1px solid #f97316; }
         .dot-dinner-sure { background-color: #7c3aed; }
         .dot-dinner-maybe { background-color: #ddd6fe; border: 1px solid #7c3aed; }
-
-        .btn-primary {
-            background: linear-gradient(to right, #f43f5e, #fb923c);
-            transition: all 0.3s ease;
-        }
+        .btn-primary { background: linear-gradient(to right, #f43f5e, #fb923c); transition: all 0.3s ease; }
         .step-transition { transition: all 0.4s ease-in-out; }
         .hidden-step { display: none; opacity: 0; transform: scale(0.95); }
-        
-        /* 熱點圖色彩階層 */
         .heatmap-max { background: #10b981; color: white; border: 2px solid #fbbf24; transform: scale(1.05); }
         .heatmap-lv3 { background: #6ee7b7; color: #064e3b; }
         .heatmap-lv1 { background: #d1fae5; color: #065f46; }
         .heatmap-lv0 { background: white; color: #cbd5e1; }
-
         .rank-item { transition: transform 0.2s; }
         .rank-item:hover { transform: translateX(8px); }
+        /* 載入動畫 */
+        #loader { background: rgba(255,255,255,0.9); z-index: 100; display: flex; }
     </style>
 </head>
 <body class="pb-10">
 
-    <!-- Navbar -->
+    <!-- 全螢幕讀取遮罩 -->
+    <div id="loader" class="fixed inset-0 flex-col items-center justify-center">
+        <div class="w-12 h-12 border-4 border-rose-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+        <p class="font-bold text-gray-600 animate-pulse">正在同步雲端資料...</p>
+    </div>
+
     <nav class="bg-white/70 backdrop-blur-md shadow-sm py-4 px-6 flex justify-between items-center sticky top-0 z-40">
         <div class="text-xl font-black bg-clip-text text-transparent bg-gradient-to-r from-rose-500 to-orange-500">
             說好的今晚見面？你人在哪！
         </div>
-        <div class="flex items-center gap-4">
-            <button onclick="resetData()" class="text-gray-400 hover:text-red-500 font-bold text-xs transition-colors">
-                重置
-            </button>
-        </div>
+        <button onclick="resetData()" class="text-gray-400 hover:text-red-500 font-bold text-sm transition-colors">重置</button>
     </nav>
 
     <main class="container mx-auto max-w-lg p-4">
         
-        <!-- 第一階段：身分確認 -->
-        <section id="step-1" class="step-transition glass-card rounded-[2rem] p-8 mt-10 text-center animate__animated animate__fadeInDown">
+        <!-- 第一階段：你哪位 -->
+        <section id="step-1" class="step-transition glass-card rounded-[2rem] p-8 mt-10 text-center">
             <div class="mb-8">
                 <div class="w-24 h-24 bg-gradient-to-tr from-rose-100 to-orange-100 text-rose-500 rounded-full flex items-center justify-center mx-auto mb-6 shadow-inner">
                     <i class="fas fa-ghost text-4xl"></i>
@@ -77,13 +69,13 @@
             </div>
             <input type="text" id="input-name" placeholder="輸入你的暱稱..." 
                 class="w-full border-b-4 border-gray-100 bg-transparent px-4 py-4 mb-10 focus:border-rose-400 focus:outline-none transition-all text-center text-2xl font-bold text-gray-700">
-            <button onclick="enterCalendar()" 
-                class="w-full btn-primary text-white font-black py-4 rounded-2xl shadow-xl text-xl">
+            <button onclick="enterCalendar()" class="w-full btn-primary text-white font-black py-4 rounded-2xl shadow-xl text-xl">
                 你啥米時候有空？ <i class="fas fa-search ml-2 text-sm"></i>
             </button>
+            <p class="mt-6 text-[10px] text-gray-400 font-bold">把此網址傳給朋友，即可同步統計結果</p>
         </section>
 
-        <!-- 第二階段：個人空檔填寫 -->
+        <!-- 第二階段：填寫空檔 -->
         <section id="step-2" class="hidden-step step-transition">
             <div class="glass-card rounded-[2rem] overflow-hidden shadow-2xl">
                 <div class="bg-indigo-600 p-6 text-white flex justify-between items-center">
@@ -91,65 +83,49 @@
                     <h3 id="calendar-month" class="font-black text-xl">2024年 12月</h3>
                     <button onclick="changeMonth(1)"><i class="fas fa-chevron-right"></i></button>
                 </div>
-                
                 <div class="p-4 bg-white/30">
                     <div class="calendar-grid text-center text-sm font-black text-indigo-400 mb-4">
                         <div>日</div><div>一</div><div>二</div><div>三</div><div>四</div><div>五</div><div>六</div>
                     </div>
                     <div id="calendar-body" class="calendar-grid gap-2"></div>
                 </div>
-
                 <div class="p-6 border-t bg-white/80">
                     <div class="flex justify-between items-center mb-4 px-2">
-                        <span class="text-xs font-black text-gray-600">
-                            <i class="fas fa-user-circle mr-1"></i> <span id="display-name" class="text-rose-500"></span>
-                        </span>
-                        <span class="text-[10px] text-gray-400 font-bold italic">點擊日期標記你的空檔</span>
+                        <span class="text-xs font-black text-gray-600"><i class="fas fa-user-circle mr-1"></i> <span id="display-name" class="text-rose-500"></span></span>
+                        <span class="text-[10px] text-gray-400 font-bold italic">點擊日期標記空檔</span>
                     </div>
-                    <button onclick="submitVotes()" class="w-full btn-primary text-white font-black py-4 rounded-2xl shadow-lg transform active:scale-95 transition-all uppercase tracking-wider">
+                    <button id="submit-btn" onclick="submitVotes()" class="w-full btn-primary text-white font-black py-4 rounded-2xl shadow-lg transform active:scale-95 transition-all">
                         我這些時間ok啦 <i class="fas fa-check-double ml-1"></i>
                     </button>
                 </div>
             </div>
         </section>
 
-        <!-- 第三階段：全體統計結果 -->
+        <!-- 第三階段：統計排行 -->
         <section id="step-3" class="hidden-step step-transition space-y-6">
-            <!-- 熱點圖統計 -->
             <div class="glass-card rounded-[2rem] p-6">
                 <div class="flex justify-between items-center mb-6">
                     <h3 class="text-2xl font-black text-gray-800 flex items-center gap-2">
-                        <i class="fas fa-chart-line text-emerald-500"></i> 全體空檔統計
+                        <i class="fas fa-chart-line text-emerald-500"></i> 全體統計
                     </h3>
-                    <div class="text-[10px] bg-emerald-100 text-emerald-600 px-2 py-1 rounded font-bold" id="total-voters-count">0 人已填寫</div>
+                    <div class="text-[10px] bg-emerald-100 text-emerald-600 px-2 py-1 rounded font-bold" id="total-voters-count">0 人填寫</div>
                 </div>
                 <div id="heatmap-calendar-body" class="calendar-grid gap-2 mb-4"></div>
-                <p class="text-[10px] text-gray-400 text-center font-bold">顏色越深，代表這天越多人在這</p>
             </div>
-
-            <!-- 排行榜統計 -->
             <div class="glass-card rounded-[2rem] p-6">
                 <h3 class="text-xl font-black text-gray-800 mb-4 flex items-center gap-2">
                     <i class="fas fa-trophy text-yellow-500"></i> 熱門時段排名
                 </h3>
                 <div id="ranking-list" class="space-y-3"></div>
             </div>
-
-            <!-- 操作區：移除換人填寫 -->
-            <div class="space-y-3">
-                <button onclick="backToEdit()" class="w-full bg-indigo-600 text-white py-4 rounded-2xl font-black shadow-lg hover:bg-indigo-700 transition-colors">
-                    修改我的時間
-                </button>
-            </div>
+            <button onclick="backToEdit()" class="w-full bg-indigo-600 text-white py-4 rounded-2xl font-black shadow-lg">修改我的時間</button>
         </section>
-
     </main>
 
-    <!-- 選擇 Modal -->
+    <!-- Modal -->
     <div id="option-modal" class="fixed inset-0 bg-indigo-950/60 backdrop-blur-sm hidden items-center justify-center p-4 z-50">
         <div class="bg-white w-full max-sm rounded-[2.5rem] p-8 shadow-2xl animate__animated animate__zoomIn">
-            <div id="modal-date-title" class="text-center font-black text-2xl text-indigo-900 mb-8 tracking-tighter border-b pb-4"></div>
-            
+            <div id="modal-date-title" class="text-center font-black text-2xl text-indigo-900 mb-8 border-b pb-4"></div>
             <div class="grid grid-cols-2 gap-6">
                 <div class="space-y-3">
                     <p class="text-center font-black text-orange-500 text-sm">☀️ 午餐</p>
@@ -162,51 +138,100 @@
                     <button onclick="toggleTimeSlot('dinner', 'maybe')" id="btn-dinner-maybe" class="w-full py-4 rounded-xl border-2 font-bold text-xs transition-all">可能可以</button>
                 </div>
             </div>
-            
-            <button onclick="closeModal()" class="w-full mt-10 bg-indigo-950 text-white font-black py-4 rounded-2xl shadow-lg">設定好了</button>
+            <button onclick="closeModal()" class="w-full mt-10 bg-indigo-950 text-white font-black py-4 rounded-2xl">設定好了</button>
         </div>
     </div>
 
     <script>
-        // --- 核心變數 ---
+        const API_BASE = "https://jsonblob.com/api/jsonBlob";
+        let blobId = new URLSearchParams(window.location.search).get('room');
+        let globalVotes = {};
         let currentUser = "";
         let currentYear = new Date().getFullYear();
         let currentMonth = new Date().getMonth();
         let selectedDate = null;
-        let mySelections = {}; 
+        let mySelections = {};
 
-        // 全體資料結構：globalVotes[date][slot][userName] = "sure" / "maybe"
-        let globalVotes = JSON.parse(localStorage.getItem('gathering_votes_shared')) || {};
-
-        // --- 初始化功能 ---
-        function resetData() {
-            if (confirm("📢 這將會「永久清除所有人」的紀錄！\n確定要重置嗎？")) {
-                localStorage.removeItem('gathering_votes_shared');
-                window.location.reload();
+        // 1. 初始化房間與同步
+        async function initSync() {
+            if (!blobId) {
+                // 如果網址沒有 ID，建立一個新房間
+                try {
+                    const res = await fetch(API_BASE, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({})
+                    });
+                    const url = res.headers.get('Location');
+                    const newId = url.split('/').pop();
+                    window.location.search = `?room=${newId}`;
+                } catch (e) { alert("無法建立同步房間，請檢查網路。"); }
+            } else {
+                await fetchCloudData();
+                document.getElementById('loader').style.display = 'none';
             }
         }
 
-        // --- 進入系統與識別 ---
+        async function fetchCloudData() {
+            try {
+                const res = await fetch(`${API_BASE}/${blobId}`);
+                globalVotes = await res.json() || {};
+            } catch (e) { console.error("同步失敗", e); }
+        }
+
+        async function pushCloudData() {
+            document.getElementById('submit-btn').innerText = "上傳中...";
+            try {
+                await fetch(`${API_BASE}/${blobId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(globalVotes)
+                });
+            } catch (e) { alert("上傳失敗，請稍後再試。"); }
+            document.getElementById('submit-btn').innerHTML = `我這些時間ok啦 <i class="fas fa-check-double ml-1"></i>`;
+        }
+
+        // 2. 基本互動
         function enterCalendar() {
             const name = document.getElementById('input-name').value.trim();
             if (!name) return alert("要填名字喔！");
             currentUser = name;
-            
-            // 讀取「我」之前的填寫紀錄
             mySelections = {}; 
             for (let date in globalVotes) {
                 const l = globalVotes[date].lunch ? globalVotes[date].lunch[currentUser] : null;
                 const d = globalVotes[date].dinner ? globalVotes[date].dinner[currentUser] : null;
-                if (l || d) {
-                    mySelections[date] = { lunch: l, dinner: d };
-                }
+                if (l || d) mySelections[date] = { lunch: l, dinner: d };
             }
-
             document.getElementById('display-name').innerText = currentUser;
             switchStep(1, 2);
             renderCalendar();
         }
 
+        async function submitVotes() {
+            // 清除我的舊紀錄
+            for (let date in globalVotes) {
+                if (globalVotes[date].lunch) delete globalVotes[date].lunch[currentUser];
+                if (globalVotes[date].dinner) delete globalVotes[date].dinner[currentUser];
+            }
+            // 寫入新紀錄
+            for (let date in mySelections) {
+                if (!globalVotes[date]) globalVotes[date] = { lunch: {}, dinner: {} };
+                const s = mySelections[date];
+                if (s.lunch) { if(!globalVotes[date].lunch) globalVotes[date].lunch = {}; globalVotes[date].lunch[currentUser] = s.lunch; }
+                if (s.dinner) { if(!globalVotes[date].dinner) globalVotes[date].dinner = {}; globalVotes[date].dinner[currentUser] = s.dinner; }
+            }
+            await pushCloudData();
+            switchStep(2, 3);
+        }
+
+        function resetData() {
+            if (confirm("📢 這將會清空「全體雲端紀錄」！確定嗎？")) {
+                globalVotes = {};
+                pushCloudData().then(() => window.location.reload());
+            }
+        }
+
+        // 3. UI 渲染邏輯 (與之前版本相同但配合雲端)
         function switchStep(from, to) {
             document.getElementById(`step-${from}`).classList.add('hidden-step');
             setTimeout(() => {
@@ -214,210 +239,98 @@
                 const toStep = document.getElementById(`step-${to}`);
                 toStep.style.display = 'block';
                 setTimeout(() => toStep.classList.remove('hidden-step'), 50);
-                
-                if (to === 3) {
-                    renderHeatmap();
-                    renderRanking();
-                }
+                if (to === 3) { renderHeatmap(); renderRanking(); }
             }, 400);
         }
 
-        // --- 行事曆渲染 ---
         function renderCalendar() {
             const body = document.getElementById('calendar-body');
             body.innerHTML = '';
             const firstDay = new Date(currentYear, currentMonth, 1).getDay();
             const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
             document.getElementById('calendar-month').innerText = `${currentYear}年 ${currentMonth + 1}月`;
-
             for (let i = 0; i < firstDay; i++) body.innerHTML += `<div></div>`;
             for (let d = 1; d <= daysInMonth; d++) {
                 const dateStr = formatDate(currentYear, currentMonth, d);
                 const sel = mySelections[dateStr];
-                
                 body.innerHTML += `
                     <div onclick="openModal('${dateStr}')" class="aspect-square flex flex-col items-center justify-center rounded-xl bg-white/50 border border-white/60 cursor-pointer relative transition-all hover:bg-white active:scale-95 shadow-sm">
-                        <span class="text-xs font-black ${isToday(dateStr) ? 'text-rose-500 ring-1 ring-rose-500 px-1 rounded' : 'text-indigo-900'}">${d}</span>
+                        <span class="text-xs font-black ${isToday(dateStr) ? 'text-rose-500' : 'text-indigo-900'}">${d}</span>
                         <div class="flex gap-1 mt-1">
                             ${sel?.lunch ? `<span class="w-1.5 h-1.5 rounded-full ${sel.lunch === 'sure' ? 'dot-lunch-sure' : 'dot-lunch-maybe'}"></span>` : ''}
                             ${sel?.dinner ? `<span class="w-1.5 h-1.5 rounded-full ${sel.dinner === 'sure' ? 'dot-dinner-sure' : 'dot-dinner-maybe'}"></span>` : ''}
                         </div>
-                    </div>
-                `;
+                    </div>`;
             }
         }
 
-        function changeMonth(delta) {
-            currentMonth += delta;
-            if (currentMonth > 11) { currentMonth = 0; currentYear++; }
-            if (currentMonth < 0) { currentMonth = 11; currentYear--; }
-            renderCalendar();
-        }
-
-        // --- Modal 互動 ---
-        function openModal(dateStr) {
-            selectedDate = dateStr;
-            document.getElementById('modal-date-title').innerText = dateStr;
-            updateModalButtons();
-            document.getElementById('option-modal').style.display = 'flex';
-        }
-
-        function closeModal() {
-            document.getElementById('option-modal').style.display = 'none';
-            renderCalendar();
-        }
-
-        function toggleTimeSlot(slot, type) {
-            if (!mySelections[selectedDate]) mySelections[selectedDate] = { lunch: null, dinner: null };
-            if (mySelections[selectedDate][slot] === type) {
-                mySelections[selectedDate][slot] = null;
-            } else {
-                mySelections[selectedDate][slot] = type;
-            }
-            updateModalButtons();
-        }
-
+        function changeMonth(delta) { currentMonth += delta; if (currentMonth > 11) { currentMonth = 0; currentYear++; } if (currentMonth < 0) { currentMonth = 11; currentYear--; } renderCalendar(); }
+        function openModal(dateStr) { selectedDate = dateStr; document.getElementById('modal-date-title').innerText = dateStr; updateModalButtons(); document.getElementById('option-modal').style.display = 'flex'; }
+        function closeModal() { document.getElementById('option-modal').style.display = 'none'; renderCalendar(); }
+        function toggleTimeSlot(slot, type) { if (!mySelections[selectedDate]) mySelections[selectedDate] = { lunch: null, dinner: null }; if (mySelections[selectedDate][slot] === type) mySelections[selectedDate][slot] = null; else mySelections[selectedDate][slot] = type; updateModalButtons(); }
         function updateModalButtons() {
             const sel = mySelections[selectedDate] || { lunch: null, dinner: null };
-            const configs = [
-                { id: 'btn-lunch-sure', active: sel.lunch === 'sure', cls: 'color-lunch-sure' },
-                { id: 'btn-lunch-maybe', active: sel.lunch === 'maybe', cls: 'color-lunch-maybe' },
-                { id: 'btn-dinner-sure', active: sel.dinner === 'sure', cls: 'color-dinner-sure' },
-                { id: 'btn-dinner-maybe', active: sel.dinner === 'maybe', cls: 'color-dinner-maybe' }
-            ];
-            configs.forEach(c => {
-                const el = document.getElementById(c.id);
-                el.className = `w-full py-4 rounded-xl border-2 font-bold text-xs transition-all ${c.active ? c.cls : 'border-gray-100 text-gray-300'}`;
-            });
+            const configs = [{ id: 'btn-lunch-sure', active: sel.lunch === 'sure', cls: 'color-lunch-sure' }, { id: 'btn-lunch-maybe', active: sel.lunch === 'maybe', cls: 'color-lunch-maybe' }, { id: 'btn-dinner-sure', active: sel.dinner === 'sure', cls: 'color-dinner-sure' }, { id: 'btn-dinner-maybe', active: sel.dinner === 'maybe', cls: 'color-dinner-maybe' }];
+            configs.forEach(c => { const el = document.getElementById(c.id); el.className = `w-full py-4 rounded-xl border-2 font-bold text-xs transition-all ${c.active ? c.cls : 'border-gray-100 text-gray-300'}`; });
         }
+        function backToEdit() { switchStep(3, 2); renderCalendar(); }
 
-        // --- 送出與保存 ---
-        function submitVotes() {
-            // 清除舊紀錄並寫入新暫存
-            for (let date in globalVotes) {
-                if (globalVotes[date].lunch) delete globalVotes[date].lunch[currentUser];
-                if (globalVotes[date].dinner) delete globalVotes[date].dinner[currentUser];
-            }
-
-            for (let date in mySelections) {
-                if (!globalVotes[date]) globalVotes[date] = { lunch: {}, dinner: {} };
-                const s = mySelections[date];
-                if (s.lunch) {
-                    if (!globalVotes[date].lunch) globalVotes[date].lunch = {};
-                    globalVotes[date].lunch[currentUser] = s.lunch;
-                }
-                if (s.dinner) {
-                    if (!globalVotes[date].dinner) globalVotes[date].dinner = {};
-                    globalVotes[date].dinner[currentUser] = s.dinner;
-                }
-            }
-
-            localStorage.setItem('gathering_votes_shared', JSON.stringify(globalVotes));
-            switchStep(2, 3);
-        }
-
-        function backToEdit() {
-            switchStep(3, 2);
-            renderCalendar();
-        }
-
-        // --- 統計與排行渲染 ---
         function renderHeatmap() {
             const body = document.getElementById('heatmap-calendar-body');
             body.innerHTML = '';
             const firstDay = new Date(currentYear, currentMonth, 1).getDay();
             const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
-            
-            let maxCount = 0;
-            const counts = {};
-            const uniqueVoters = new Set();
-
+            let maxCount = 0; const counts = {}; const uniqueVoters = new Set();
             for (let d = 1; d <= daysInMonth; d++) {
                 const dateStr = formatDate(currentYear, currentMonth, d);
                 const lVoters = Object.keys(globalVotes[dateStr]?.lunch || {});
                 const dVoters = Object.keys(globalVotes[dateStr]?.dinner || {});
-                const totalOnDay = lVoters.length + dVoters.length;
-                counts[dateStr] = totalOnDay;
-                if (totalOnDay > maxCount) maxCount = totalOnDay;
-                lVoters.forEach(v => uniqueVoters.add(v));
-                dVoters.forEach(v => uniqueVoters.add(v));
+                counts[dateStr] = lVoters.length + dVoters.length;
+                if (counts[dateStr] > maxCount) maxCount = counts[dateStr];
+                lVoters.forEach(v => uniqueVoters.add(v)); dVoters.forEach(v => uniqueVoters.add(v));
             }
-
-            document.getElementById('total-voters-count').innerText = `${uniqueVoters.size} 人已參與`;
-
+            document.getElementById('total-voters-count').innerText = `${uniqueVoters.size} 人填寫`;
             for (let i = 0; i < firstDay; i++) body.innerHTML += `<div></div>`;
             for (let d = 1; d <= daysInMonth; d++) {
                 const dateStr = formatDate(currentYear, currentMonth, d);
                 const count = counts[dateStr];
-                let lvClass = 'heatmap-lv0';
-                if (maxCount > 0 && count > 0) {
-                    if (count === maxCount) lvClass = 'heatmap-max';
-                    else if (count >= maxCount * 0.6) lvClass = 'heatmap-lv3';
-                    else lvClass = 'heatmap-lv1';
-                }
-                body.innerHTML += `<div class="aspect-square flex items-center justify-center rounded-lg text-xs font-black border border-gray-100 ${lvClass}">${d}</div>`;
+                let lv = 'heatmap-lv0';
+                if (maxCount > 0 && count > 0) { if (count === maxCount) lv = 'heatmap-max'; else if (count >= maxCount * 0.6) lv = 'heatmap-lv3'; else lv = 'heatmap-lv1'; }
+                body.innerHTML += `<div class="aspect-square flex items-center justify-center rounded-lg text-xs font-black border border-gray-100 ${lv}">${d}</div>`;
             }
         }
 
         function renderRanking() {
             const listEl = document.getElementById('ranking-list');
-            listEl.innerHTML = '';
-            let rankingData = [];
-
+            listEl.innerHTML = ''; let rankingData = [];
             for (let date in globalVotes) {
                 ['lunch', 'dinner'].forEach(slot => {
                     const votersMap = globalVotes[date][slot] || {};
                     const votersList = Object.keys(votersMap);
-                    if (votersList.length > 0) {
-                        rankingData.push({
-                            date, slot, total: votersList.length, voters: votersMap
-                        });
-                    }
+                    if (votersList.length > 0) rankingData.push({ date, slot, total: votersList.length, voters: votersMap });
                 });
             }
-
             rankingData.sort((a, b) => b.total - a.total);
-
-            if (rankingData.length === 0) {
-                listEl.innerHTML = '<p class="text-gray-400 text-center py-10 font-bold italic">目前尚無人填寫</p>';
-                return;
-            }
-
+            if (rankingData.length === 0) { listEl.innerHTML = '<p class="text-gray-400 text-center py-10 font-bold italic">尚無人填寫</p>'; return; }
             rankingData.forEach((item, index) => {
                 const div = document.createElement('div');
                 div.className = "rank-item bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex flex-col gap-3";
-                
-                let voterBadges = "";
+                let badges = "";
                 for (let name in item.voters) {
                     const type = item.voters[name];
-                    const cls = item.slot === 'lunch' 
-                        ? (type === 'sure' ? 'color-lunch-sure' : 'color-lunch-maybe') 
-                        : (type === 'sure' ? 'color-dinner-sure' : 'color-dinner-maybe');
-                    voterBadges += `<span class="px-2 py-0.5 rounded-full text-[10px] font-black ${cls}">${name}</span> `;
+                    const cls = item.slot === 'lunch' ? (type === 'sure' ? 'color-lunch-sure' : 'color-lunch-maybe') : (type === 'sure' ? 'color-dinner-sure' : 'color-dinner-maybe');
+                    badges += `<span class="px-2 py-0.5 rounded-full text-[10px] font-black ${cls}">${name}</span> `;
                 }
-
-                div.innerHTML = `
-                    <div class="flex justify-between items-center">
-                        <div class="flex items-center gap-2">
-                            <span class="w-6 h-6 flex items-center justify-center rounded-full bg-indigo-900 text-white font-black text-[10px]">${index + 1}</span>
-                            <span class="font-black text-gray-800 tracking-tighter">${item.date}</span>
-                            <span class="text-xs font-black ${item.slot === 'lunch' ? 'text-orange-500' : 'text-violet-500'}">${item.slot === 'lunch' ? '午餐 ☀️' : '晚餐 🌙'}</span>
-                        </div>
-                        <div class="text-xl font-black text-gray-800">${item.total}<span class="text-[10px] ml-0.5 text-gray-400 font-bold">P</span></div>
-                    </div>
-                    <div class="flex flex-wrap gap-1">${voterBadges}</div>
-                `;
+                div.innerHTML = `<div class="flex justify-between items-center"><div class="flex items-center gap-2"><span class="w-6 h-6 flex items-center justify-center rounded-full bg-indigo-900 text-white font-black text-[10px]">${index + 1}</span><span class="font-black text-gray-800 tracking-tighter">${item.date}</span><span class="text-xs font-black ${item.slot === 'lunch' ? 'text-orange-500' : 'text-violet-500'}">${item.slot === 'lunch' ? '午餐 ☀️' : '晚餐 🌙'}</span></div><div class="text-xl font-black text-gray-800">${item.total}<span class="text-[10px] ml-0.5 text-gray-400 font-bold">P</span></div></div><div class="flex flex-wrap gap-1">${badges}</div>`;
                 listEl.appendChild(div);
             });
         }
 
-        function formatDate(y, m, d) {
-            return `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-        }
-        function isToday(dateStr) {
-            const t = new Date();
-            return dateStr === formatDate(t.getFullYear(), t.getMonth(), t.getDate());
-        }
+        function formatDate(y, m, d) { return `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`; }
+        function isToday(dateStr) { const t = new Date(); return dateStr === formatDate(t.getFullYear(), t.getMonth(), t.getDate()); }
+
+        // 開始同步
+        initSync();
     </script>
 </body>
 </html>
