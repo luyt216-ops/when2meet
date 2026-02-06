@@ -38,29 +38,29 @@
         .heatmap-lv0 { background: white; color: #cbd5e1; }
         .rank-item { transition: transform 0.2s; }
         .rank-item:hover { transform: translateX(8px); }
-        /* 載入動畫 */
-        #loader { background: rgba(255,255,255,0.9); z-index: 100; display: flex; }
+        
+        /* 狀態提示燈 */
+        #sync-indicator { position: fixed; bottom: 10px; right: 10px; font-size: 10px; padding: 2px 8px; border-radius: 99px; z-index: 100; }
+        .sync-online { background: #d1fae5; color: #065f46; }
+        .sync-offline { background: #fee2e2; color: #991b1b; }
     </style>
 </head>
 <body class="pb-10">
 
-    <!-- 全螢幕讀取遮罩 -->
-    <div id="loader" class="fixed inset-0 flex-col items-center justify-center">
-        <div class="w-12 h-12 border-4 border-rose-500 border-t-transparent rounded-full animate-spin mb-4"></div>
-        <p class="font-bold text-gray-600 animate-pulse">正在同步雲端資料...</p>
-    </div>
+    <!-- 背景同步狀態燈 -->
+    <div id="sync-indicator" class="sync-online"><i class="fas fa-circle text-[6px] mr-1 animate-pulse"></i> 雲端同步中...</div>
 
     <nav class="bg-white/70 backdrop-blur-md shadow-sm py-4 px-6 flex justify-between items-center sticky top-0 z-40">
         <div class="text-xl font-black bg-clip-text text-transparent bg-gradient-to-r from-rose-500 to-orange-500">
             說好的今晚見面？你人在哪！
         </div>
-        <button onclick="resetData()" class="text-gray-400 hover:text-red-500 font-bold text-sm transition-colors">重置</button>
+        <button onclick="resetData()" class="text-gray-400 hover:text-red-500 font-bold text-sm transition-colors uppercase">重置</button>
     </nav>
 
     <main class="container mx-auto max-w-lg p-4">
         
         <!-- 第一階段：你哪位 -->
-        <section id="step-1" class="step-transition glass-card rounded-[2rem] p-8 mt-10 text-center">
+        <section id="step-1" class="step-transition glass-card rounded-[2rem] p-8 mt-10 text-center animate__animated animate__fadeInDown">
             <div class="mb-8">
                 <div class="w-24 h-24 bg-gradient-to-tr from-rose-100 to-orange-100 text-rose-500 rounded-full flex items-center justify-center mx-auto mb-6 shadow-inner">
                     <i class="fas fa-ghost text-4xl"></i>
@@ -70,9 +70,12 @@
             <input type="text" id="input-name" placeholder="輸入你的暱稱..." 
                 class="w-full border-b-4 border-gray-100 bg-transparent px-4 py-4 mb-10 focus:border-rose-400 focus:outline-none transition-all text-center text-2xl font-bold text-gray-700">
             <button onclick="enterCalendar()" class="w-full btn-primary text-white font-black py-4 rounded-2xl shadow-xl text-xl">
-                你啥米時候有空？ <i class="fas fa-search ml-2 text-sm"></i>
+                你啥米時候有空？ <i class="fas fa-calendar-alt ml-2 text-sm"></i>
             </button>
-            <p class="mt-6 text-[10px] text-gray-400 font-bold">把此網址傳給朋友，即可同步統計結果</p>
+            <div id="room-info" class="mt-8 p-3 bg-white/50 rounded-xl border border-dashed border-gray-200 hidden">
+                <p class="text-[10px] text-gray-400 font-bold mb-1 uppercase tracking-widest">分享此網址讓大家同步統計結果</p>
+                <input type="text" id="share-url" readonly onclick="this.select()" class="w-full text-[10px] bg-white border-none text-rose-400 font-bold text-center">
+            </div>
         </section>
 
         <!-- 第二階段：填寫空檔 -->
@@ -91,7 +94,7 @@
                 </div>
                 <div class="p-6 border-t bg-white/80">
                     <div class="flex justify-between items-center mb-4 px-2">
-                        <span class="text-xs font-black text-gray-600"><i class="fas fa-user-circle mr-1"></i> <span id="display-name" class="text-rose-500"></span></span>
+                        <span class="text-xs font-black text-gray-600"><i class="fas fa-user-circle mr-1 text-indigo-400"></i> <span id="display-name" class="text-indigo-600"></span></span>
                         <span class="text-[10px] text-gray-400 font-bold italic">點擊日期標記空檔</span>
                     </div>
                     <button id="submit-btn" onclick="submitVotes()" class="w-full btn-primary text-white font-black py-4 rounded-2xl shadow-lg transform active:scale-95 transition-all">
@@ -106,7 +109,7 @@
             <div class="glass-card rounded-[2rem] p-6">
                 <div class="flex justify-between items-center mb-6">
                     <h3 class="text-2xl font-black text-gray-800 flex items-center gap-2">
-                        <i class="fas fa-chart-line text-emerald-500"></i> 全體統計
+                        <i class="fas fa-chart-line text-emerald-500"></i> 全體統計結果
                     </h3>
                     <div class="text-[10px] bg-emerald-100 text-emerald-600 px-2 py-1 rounded font-bold" id="total-voters-count">0 人填寫</div>
                 </div>
@@ -129,69 +132,113 @@
             <div class="grid grid-cols-2 gap-6">
                 <div class="space-y-3">
                     <p class="text-center font-black text-orange-500 text-sm">☀️ 午餐</p>
-                    <button onclick="toggleTimeSlot('lunch', 'sure')" id="btn-lunch-sure" class="w-full py-4 rounded-xl border-2 font-bold text-xs transition-all">確定可以</button>
-                    <button onclick="toggleTimeSlot('lunch', 'maybe')" id="btn-lunch-maybe" class="w-full py-4 rounded-xl border-2 font-bold text-xs transition-all">可能可以</button>
+                    <button onclick="toggleTimeSlot('lunch', 'sure')" id="btn-lunch-sure" class="w-full py-4 rounded-xl border-2 font-bold text-xs">確定可以</button>
+                    <button onclick="toggleTimeSlot('lunch', 'maybe')" id="btn-lunch-maybe" class="w-full py-4 rounded-xl border-2 font-bold text-xs">可能可以</button>
                 </div>
                 <div class="space-y-3">
                     <p class="text-center font-black text-violet-500 text-sm">🌙 晚餐</p>
-                    <button onclick="toggleTimeSlot('dinner', 'sure')" id="btn-dinner-sure" class="w-full py-4 rounded-xl border-2 font-bold text-xs transition-all">確定可以</button>
-                    <button onclick="toggleTimeSlot('dinner', 'maybe')" id="btn-dinner-maybe" class="w-full py-4 rounded-xl border-2 font-bold text-xs transition-all">可能可以</button>
+                    <button onclick="toggleTimeSlot('dinner', 'sure')" id="btn-dinner-sure" class="w-full py-4 rounded-xl border-2 font-bold text-xs">確定可以</button>
+                    <button onclick="toggleTimeSlot('dinner', 'maybe')" id="btn-dinner-maybe" class="w-full py-4 rounded-xl border-2 font-bold text-xs">可能可以</button>
                 </div>
             </div>
-            <button onclick="closeModal()" class="w-full mt-10 bg-indigo-950 text-white font-black py-4 rounded-2xl">設定好了</button>
+            <button onclick="closeModal()" class="w-full mt-10 bg-indigo-950 text-white font-black py-4 rounded-2xl shadow-lg">設定好了</button>
         </div>
     </div>
 
     <script>
+        // 使用更穩定的 json.blob API 或是 npoint API，這裡加上 Timeout 邏輯
         const API_BASE = "https://jsonblob.com/api/jsonBlob";
         let blobId = new URLSearchParams(window.location.search).get('room');
-        let globalVotes = {};
+        let globalVotes = JSON.parse(localStorage.getItem('gather_local_cache')) || {};
         let currentUser = "";
         let currentYear = new Date().getFullYear();
         let currentMonth = new Date().getMonth();
         let selectedDate = null;
         let mySelections = {};
 
-        // 1. 初始化房間與同步
-        async function initSync() {
-            if (!blobId) {
-                // 如果網址沒有 ID，建立一個新房間
-                try {
-                    const res = await fetch(API_BASE, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({})
-                    });
-                    const url = res.headers.get('Location');
-                    const newId = url.split('/').pop();
-                    window.location.search = `?room=${newId}`;
-                } catch (e) { alert("無法建立同步房間，請檢查網路。"); }
-            } else {
-                await fetchCloudData();
-                document.getElementById('loader').style.display = 'none';
+        // --- 同步邏輯優化 ---
+        async function fetchWithTimeout(url, options = {}, timeout = 5000) {
+            const controller = new AbortController();
+            const id = setTimeout(() => controller.abort(), timeout);
+            try {
+                const response = await fetch(url, { ...options, signal: controller.signal });
+                clearTimeout(id);
+                return response;
+            } catch (e) {
+                clearTimeout(id);
+                throw e;
             }
         }
 
-        async function fetchCloudData() {
+        async function initSync() {
+            const indicator = document.getElementById('sync-indicator');
+            if (!blobId) {
+                indicator.innerText = "尚未建立共享連結";
+                indicator.className = "sync-offline";
+                // 異步嘗試建立，但不阻塞 UI
+                createRoom();
+                return;
+            }
+
             try {
-                const res = await fetch(`${API_BASE}/${blobId}`);
-                globalVotes = await res.json() || {};
-            } catch (e) { console.error("同步失敗", e); }
+                const res = await fetchWithTimeout(`${API_BASE}/${blobId}`);
+                if (res.ok) {
+                    globalVotes = await res.json();
+                    localStorage.setItem('gather_local_cache', JSON.stringify(globalVotes));
+                    indicator.innerText = "雲端同步已完成";
+                    indicator.className = "sync-online";
+                }
+            } catch (e) {
+                indicator.innerText = "同步失敗 (使用離線資料)";
+                indicator.className = "sync-offline";
+            }
+            
+            // 顯示分享網址
+            document.getElementById('room-info').classList.remove('hidden');
+            document.getElementById('share-url').value = window.location.href;
+        }
+
+        async function createRoom() {
+            try {
+                const res = await fetchWithTimeout(API_BASE, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(globalVotes)
+                });
+                const url = res.headers.get('Location');
+                const newId = url.split('/').pop();
+                // 不自動跳轉，只更新 URL 方便分享
+                const newUrl = window.location.origin + window.location.pathname + `?room=${newId}`;
+                window.history.pushState({ path: newUrl }, '', newUrl);
+                blobId = newId;
+                document.getElementById('room-info').classList.remove('hidden');
+                document.getElementById('share-url').value = newUrl;
+                document.getElementById('sync-indicator').innerText = "雲端空間已建立";
+                document.getElementById('sync-indicator').className = "sync-online";
+            } catch (e) {
+                console.error("建立房間失敗", e);
+            }
         }
 
         async function pushCloudData() {
-            document.getElementById('submit-btn').innerText = "上傳中...";
+            if (!blobId) return;
+            const indicator = document.getElementById('sync-indicator');
+            indicator.innerText = "上傳中...";
             try {
-                await fetch(`${API_BASE}/${blobId}`, {
+                await fetchWithTimeout(`${API_BASE}/${blobId}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(globalVotes)
                 });
-            } catch (e) { alert("上傳失敗，請稍後再試。"); }
-            document.getElementById('submit-btn').innerHTML = `我這些時間ok啦 <i class="fas fa-check-double ml-1"></i>`;
+                indicator.innerText = "資料已更新至雲端";
+                indicator.className = "sync-online";
+            } catch (e) {
+                indicator.innerText = "上傳失敗，已存至本地";
+                indicator.className = "sync-offline";
+            }
         }
 
-        // 2. 基本互動
+        // --- UI 與 投票邏輯 ---
         function enterCalendar() {
             const name = document.getElementById('input-name').value.trim();
             if (!name) return alert("要填名字喔！");
@@ -208,30 +255,29 @@
         }
 
         async function submitVotes() {
-            // 清除我的舊紀錄
             for (let date in globalVotes) {
                 if (globalVotes[date].lunch) delete globalVotes[date].lunch[currentUser];
                 if (globalVotes[date].dinner) delete globalVotes[date].dinner[currentUser];
             }
-            // 寫入新紀錄
             for (let date in mySelections) {
                 if (!globalVotes[date]) globalVotes[date] = { lunch: {}, dinner: {} };
                 const s = mySelections[date];
                 if (s.lunch) { if(!globalVotes[date].lunch) globalVotes[date].lunch = {}; globalVotes[date].lunch[currentUser] = s.lunch; }
                 if (s.dinner) { if(!globalVotes[date].dinner) globalVotes[date].dinner = {}; globalVotes[date].dinner[currentUser] = s.dinner; }
             }
-            await pushCloudData();
+            localStorage.setItem('gather_local_cache', JSON.stringify(globalVotes));
+            pushCloudData();
             switchStep(2, 3);
         }
 
         function resetData() {
-            if (confirm("📢 這將會清空「全體雲端紀錄」！確定嗎？")) {
+            if (confirm("📢 確定要清除「全體」資料嗎？建議先備份網址。")) {
                 globalVotes = {};
+                localStorage.removeItem('gather_local_cache');
                 pushCloudData().then(() => window.location.reload());
             }
         }
 
-        // 3. UI 渲染邏輯 (與之前版本相同但配合雲端)
         function switchStep(from, to) {
             document.getElementById(`step-${from}`).classList.add('hidden-step');
             setTimeout(() => {
@@ -254,7 +300,7 @@
                 const dateStr = formatDate(currentYear, currentMonth, d);
                 const sel = mySelections[dateStr];
                 body.innerHTML += `
-                    <div onclick="openModal('${dateStr}')" class="aspect-square flex flex-col items-center justify-center rounded-xl bg-white/50 border border-white/60 cursor-pointer relative transition-all hover:bg-white active:scale-95 shadow-sm">
+                    <div onclick="openModal('${dateStr}')" class="aspect-square flex flex-col items-center justify-center rounded-xl bg-white/40 border border-white/60 cursor-pointer relative transition-all hover:bg-white active:scale-95 shadow-sm">
                         <span class="text-xs font-black ${isToday(dateStr) ? 'text-rose-500' : 'text-indigo-900'}">${d}</span>
                         <div class="flex gap-1 mt-1">
                             ${sel?.lunch ? `<span class="w-1.5 h-1.5 rounded-full ${sel.lunch === 'sure' ? 'dot-lunch-sure' : 'dot-lunch-maybe'}"></span>` : ''}
@@ -289,7 +335,7 @@
                 if (counts[dateStr] > maxCount) maxCount = counts[dateStr];
                 lVoters.forEach(v => uniqueVoters.add(v)); dVoters.forEach(v => uniqueVoters.add(v));
             }
-            document.getElementById('total-voters-count').innerText = `${uniqueVoters.size} 人填寫`;
+            document.getElementById('total-voters-count').innerText = `${uniqueVoters.size} 人參與`;
             for (let i = 0; i < firstDay; i++) body.innerHTML += `<div></div>`;
             for (let d = 1; d <= daysInMonth; d++) {
                 const dateStr = formatDate(currentYear, currentMonth, d);
@@ -329,7 +375,7 @@
         function formatDate(y, m, d) { return `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`; }
         function isToday(dateStr) { const t = new Date(); return dateStr === formatDate(t.getFullYear(), t.getMonth(), t.getDate()); }
 
-        // 開始同步
+        // 背景同步初始化
         initSync();
     </script>
 </body>
