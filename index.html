@@ -79,7 +79,7 @@
                 class="w-full border-b-4 border-gray-100 bg-transparent px-4 py-4 mb-10 focus:border-rose-400 focus:outline-none transition-all text-center text-2xl font-bold text-gray-700">
             <button onclick="enterCalendar()" 
                 class="w-full btn-primary text-white font-black py-4 rounded-2xl shadow-xl text-xl">
-                看看大家的時間 <i class="fas fa-search ml-2 text-sm"></i>
+                你啥米時候有空？ <i class="fas fa-search ml-2 text-sm"></i>
             </button>
         </section>
 
@@ -104,10 +104,10 @@
                         <span class="text-xs font-black text-gray-600">
                             <i class="fas fa-user-circle mr-1"></i> <span id="display-name" class="text-rose-500"></span>
                         </span>
-                        <span class="text-[10px] text-gray-400 font-bold italic">點擊日期填寫你的空檔</span>
+                        <span class="text-[10px] text-gray-400 font-bold italic">點擊日期標記你的空檔</span>
                     </div>
-                    <button onclick="submitVotes()" class="w-full btn-primary text-white font-black py-4 rounded-2xl shadow-lg transform active:scale-95 transition-all">
-                        送出我的時間！ <i class="fas fa-paper-plane ml-1"></i>
+                    <button onclick="submitVotes()" class="w-full btn-primary text-white font-black py-4 rounded-2xl shadow-lg transform active:scale-95 transition-all uppercase tracking-wider">
+                        我這些時間ok啦 <i class="fas fa-check-double ml-1"></i>
                     </button>
                 </div>
             </div>
@@ -124,7 +124,7 @@
                     <div class="text-[10px] bg-emerald-100 text-emerald-600 px-2 py-1 rounded font-bold" id="total-voters-count">0 人已填寫</div>
                 </div>
                 <div id="heatmap-calendar-body" class="calendar-grid gap-2 mb-4"></div>
-                <p class="text-[10px] text-gray-400 text-center font-bold">顏色越深，代表這天越多人有空</p>
+                <p class="text-[10px] text-gray-400 text-center font-bold">顏色越深，代表這天越多人在這</p>
             </div>
 
             <!-- 排行榜統計 -->
@@ -135,13 +135,10 @@
                 <div id="ranking-list" class="space-y-3"></div>
             </div>
 
-            <!-- 操作區 -->
-            <div class="grid grid-cols-2 gap-3">
-                <button onclick="backToEdit()" class="bg-indigo-600 text-white py-4 rounded-2xl font-black shadow-lg">
+            <!-- 操作區：移除換人填寫 -->
+            <div class="space-y-3">
+                <button onclick="backToEdit()" class="w-full bg-indigo-600 text-white py-4 rounded-2xl font-black shadow-lg hover:bg-indigo-700 transition-colors">
                     修改我的時間
-                </button>
-                <button onclick="location.reload()" class="bg-white text-gray-600 py-4 rounded-2xl font-black border border-gray-200">
-                    換人填寫
                 </button>
             </div>
         </section>
@@ -176,29 +173,26 @@
         let currentYear = new Date().getFullYear();
         let currentMonth = new Date().getMonth();
         let selectedDate = null;
-        let mySelections = {}; // 本次填寫暫存
+        let mySelections = {}; 
 
-        /** 
-         * 全體資料結構 (公共資料庫模擬)
-         * globalVotes[date][slot][userName] = "sure" / "maybe"
-         */
+        // 全體資料結構：globalVotes[date][slot][userName] = "sure" / "maybe"
         let globalVotes = JSON.parse(localStorage.getItem('gathering_votes_shared')) || {};
 
         // --- 初始化功能 ---
         function resetData() {
-            if (confirm("📢 這將會「永久清除所有人」的填寫紀錄！\n確定要重置嗎？")) {
+            if (confirm("📢 這將會「永久清除所有人」的紀錄！\n確定要重置嗎？")) {
                 localStorage.removeItem('gathering_votes_shared');
                 window.location.reload();
             }
         }
 
-        // --- 進入系統與身分識別 ---
+        // --- 進入系統與識別 ---
         function enterCalendar() {
             const name = document.getElementById('input-name').value.trim();
             if (!name) return alert("要填名字喔！");
             currentUser = name;
             
-            // 從全體資料中找回「我自己」之前的填寫紀錄
+            // 讀取「我」之前的填寫紀錄
             mySelections = {}; 
             for (let date in globalVotes) {
                 const l = globalVotes[date].lunch ? globalVotes[date].lunch[currentUser] : null;
@@ -221,7 +215,6 @@
                 toStep.style.display = 'block';
                 setTimeout(() => toStep.classList.remove('hidden-step'), 50);
                 
-                // 如果是去第三階段，觸發統計計算
                 if (to === 3) {
                     renderHeatmap();
                     renderRanking();
@@ -229,7 +222,7 @@
             }, 400);
         }
 
-        // --- 行事曆渲染 (填寫用) ---
+        // --- 行事曆渲染 ---
         function renderCalendar() {
             const body = document.getElementById('calendar-body');
             body.innerHTML = '';
@@ -298,15 +291,14 @@
             });
         }
 
-        // --- 核心送出與保存邏輯 ---
+        // --- 送出與保存 ---
         function submitVotes() {
-            // 1. 在公共資料庫中移除「我」舊的所有投票 (避免重複計票或殘留)
+            // 清除舊紀錄並寫入新暫存
             for (let date in globalVotes) {
                 if (globalVotes[date].lunch) delete globalVotes[date].lunch[currentUser];
                 if (globalVotes[date].dinner) delete globalVotes[date].dinner[currentUser];
             }
 
-            // 2. 將我的「新選取紀錄」寫入公共資料庫
             for (let date in mySelections) {
                 if (!globalVotes[date]) globalVotes[date] = { lunch: {}, dinner: {} };
                 const s = mySelections[date];
@@ -320,10 +312,7 @@
                 }
             }
 
-            // 3. 儲存回 LocalStorage (持久化)
             localStorage.setItem('gathering_votes_shared', JSON.stringify(globalVotes));
-            
-            // 4. 前往統計頁面
             switchStep(2, 3);
         }
 
@@ -332,7 +321,7 @@
             renderCalendar();
         }
 
-        // --- 統計結果渲染 ---
+        // --- 統計與排行渲染 ---
         function renderHeatmap() {
             const body = document.getElementById('heatmap-calendar-body');
             body.innerHTML = '';
@@ -347,20 +336,15 @@
                 const dateStr = formatDate(currentYear, currentMonth, d);
                 const lVoters = Object.keys(globalVotes[dateStr]?.lunch || {});
                 const dVoters = Object.keys(globalVotes[dateStr]?.dinner || {});
-                
-                // 統計此日總票數
                 const totalOnDay = lVoters.length + dVoters.length;
                 counts[dateStr] = totalOnDay;
                 if (totalOnDay > maxCount) maxCount = totalOnDay;
-
-                // 收集總參與人數
                 lVoters.forEach(v => uniqueVoters.add(v));
                 dVoters.forEach(v => uniqueVoters.add(v));
             }
 
             document.getElementById('total-voters-count').innerText = `${uniqueVoters.size} 人已參與`;
 
-            // 繪製格位
             for (let i = 0; i < firstDay; i++) body.innerHTML += `<div></div>`;
             for (let d = 1; d <= daysInMonth; d++) {
                 const dateStr = formatDate(currentYear, currentMonth, d);
@@ -380,7 +364,6 @@
             listEl.innerHTML = '';
             let rankingData = [];
 
-            // 轉換公共資料為排行榜格式
             for (let date in globalVotes) {
                 ['lunch', 'dinner'].forEach(slot => {
                     const votersMap = globalVotes[date][slot] || {};
@@ -393,11 +376,10 @@
                 });
             }
 
-            // 排序：最高票優先
             rankingData.sort((a, b) => b.total - a.total);
 
             if (rankingData.length === 0) {
-                listEl.innerHTML = '<p class="text-gray-400 text-center py-10 font-bold">目前尚無人填寫</p>';
+                listEl.innerHTML = '<p class="text-gray-400 text-center py-10 font-bold italic">目前尚無人填寫</p>';
                 return;
             }
 
@@ -429,7 +411,6 @@
             });
         }
 
-        // --- 輔助函式 ---
         function formatDate(y, m, d) {
             return `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
         }
